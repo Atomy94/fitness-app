@@ -1,0 +1,15 @@
+# PERSÖNLICHE DATEN – dürfen NIEMALS ins Repository
+health-data.json
+health-data*.json
+README-health-data.md
+claude-code-prompts-fitness-app.md
+*sicherung*.json
+*Sicherung*.json
+*backup*.json
+*.bak
+privat/
+
+# Werkzeuge
+node_modules/
+.DS_Store
+Thumbs.db

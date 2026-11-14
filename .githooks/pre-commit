@@ -1,0 +1,17 @@
+#!/bin/sh
+# Verhindert, dass persönliche Daten in einen Commit gelangen.
+# Aktiviert durch: git config core.hooksPath .githooks
+verboten=$(git diff --cached --name-only | grep -i -E '(health-data|sicherung|backup|^privat/|claude-code-prompts)' )
+if [ -n "$verboten" ]; then
+  echo "ABBRUCH: Diese Dateien enthalten vermutlich persönliche Daten und dürfen nicht ins Repository:"
+  echo "$verboten"
+  exit 1
+fi
+# Inhaltliche Prüfung: Sicherungsdateien erkennt man am Format-Kennzeichen.
+for f in $(git diff --cached --name-only --diff-filter=ACM | grep -E '\.json$'); do
+  if git show ":$f" | grep -q '"format": *"fitness-sicherung"'; then
+    echo "ABBRUCH: $f ist eine Sicherungsdatei mit persönlichen Daten."
+    exit 1
+  fi
+done
+exit 0
