@@ -217,11 +217,12 @@ export function verarbeite(stateAlt, eintraege, optionen = {}) {
       p.titel = `Training ${e.einheit}, ${de(e.datum)}`;
       const i = state.trainings.findIndex((t) => t.typ === 'kraft' && t.datum === e.datum && t.einheit === e.einheit);
       const neu = { id: neueId(), typ: 'kraft', datum: e.datum, einheit: e.einheit, dauer_min: e.dauer_min ?? null, verkuerzt: e.verkuerzt ?? false, uebungen: e.uebungen || [], notiz: e.notiz || '' };
-      p.felder = [{ feld: 'uebungen', alt: null, neu: `${neu.uebungen.length} Übungen` }];
+      const anzahl = (n) => (n === 1 ? '1 Übung' : `${n} Übungen`);
+      p.felder = [{ feld: 'uebungen', alt: null, neu: anzahl(neu.uebungen.length) }];
       if (i >= 0) {
         p.rueckfrage = true;
         const alt = state.trainings[i];
-        p.felder = [{ feld: 'uebungen', alt: `${(alt.uebungen || []).length} Übungen`, neu: `${neu.uebungen.length} Übungen` }];
+        p.felder = [{ feld: 'uebungen', alt: anzahl((alt.uebungen || []).length), neu: anzahl(neu.uebungen.length) }];
         if (ersetzen[e.index] === false) p.art = 'uebersprungen';
         else { neu.id = alt.id; state.trainings[i] = neu; p.art = 'ersetzt'; }
       } else {

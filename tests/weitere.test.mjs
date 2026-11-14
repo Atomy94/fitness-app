@@ -211,7 +211,7 @@ test('Check-in: Wochenwerte und Text für Claude', () => {
   s.tage[MO] = { datum: MO, gewicht_kg: 94.8, kcal: 2200, eiweiss_g: 160, schritte: 6000, schlaf_h: 7, schlaf_qualitaet: 4, stress: 5, ballaststoffe_g: 30, ges_fett_g: 20 };
   s.tage['2026-11-10'] = { datum: '2026-11-10', gewicht_kg: 94.2, kcal: 2100, eiweiss_g: 150, schritte: 4000, schlaf_h: 8, stress: 7 };
   s.tage[SO] = { datum: SO, fussball: false };
-  s.trainings.push(kraft(MO), kraft(MO, 'Extra'), cardio(SO, 'Spaziergang', 50));
+  s.trainings.push(kraft(MO), kraft(MO, 'Extra'), kraft('2026-11-14', 'Kraft C'), cardio(SO, 'Spaziergang', 50));
   s.messungen.push({ id: 'm', datum: '2026-11-08', quelle: 'Maßband', bauch_cm: 102 });
   const w = wochenWerte(s, MO, SPAETER);
   assert.equal(w.gewicht, 94.5);
@@ -228,7 +228,8 @@ test('Check-in: Wochenwerte und Text für Claude', () => {
   assert.equal(w.stress, 6);
   const zeilen = Object.fromEntries(checkinZeilen(w));
   assert.equal(zeilen['Gewicht Ø'], '94,5 kg (-0,5 kg zur Vorwoche)');
-  assert.equal(zeilen['Krafteinheiten'], '1 von 2');
+  assert.equal(w.kraftBonus, 1); // Samstag ist kein Pflichttag
+  assert.equal(zeilen['Krafteinheiten'], '1 von 2 + 1 Bonus');
   assert.equal(zeilen['Wertung Ernährung'], '2 von 7 Tagen');
   const text = checkinText(w, { verdauung: 'gut', besonderheiten: '' });
   assert.match(text, /KW 46 \(09\.11\.2026–15\.11\.2026\)/);
@@ -258,4 +259,8 @@ test('Offline: jede App-Datei steht in der Liste des Service Workers', { skip: !
   const dateien = ['index.html', 'manifest.webmanifest', ...sammle('js'), ...sammle('css'), ...sammle('icons')];
   for (const d of dateien) assert.ok(liste.includes(d), `${d} fehlt in sw.js`);
   for (const l of liste) assert.ok(existsSync(l), `${l} steht in sw.js, existiert aber nicht`);
+  // Versionsnummer muss an beiden Stellen gleich sein, sonst kommt ein Update nicht an.
+  const vSw = sw.match(/const VERSION = '([^']+)'/)[1];
+  const vApp = readFileSync('js/version.js', 'utf8').match(/VERSION = '([^']+)'/)[1];
+  assert.equal(vSw, vApp);
 });

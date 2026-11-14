@@ -253,6 +253,18 @@ test('Gültigkeitsdatum: vergangene Tage werden mit dem alten Ziel bewertet', ()
   assert.equal(zielWert(s.ziele, 'kcal_mo_sa_min', '2027-01-01'), 2300);
 });
 
+test('Geänderter Wochenplan: vergangene Tage werden nach dem alten Plan bewertet', () => {
+  const s = stand();
+  const alt = structuredClone(s.einstellungen.plan.wochenplan);
+  s.einstellungen.plan.wochenplanAlt = [{ bis: '2026-11-22', wochenplan: alt }];
+  s.einstellungen.plan.wochenplan[3] = { typ: 'kraft', einheit: 'Kraft A', text: 'Kraft A' }; // neu: Mittwoch
+  s.einstellungen.plan.wochenplan[1] = { typ: 'frei', text: '' };
+  assert.equal(trainingStatus(s, MO, SPAETER).status, ROT); // alter Plan: Montag Pflicht
+  assert.equal(trainingStatus(s, MI, SPAETER).status, GRAU);
+  assert.equal(trainingStatus(s, '2026-11-23', SPAETER).status, GRAU); // neuer Plan: Montag frei
+  assert.equal(trainingStatus(s, '2026-11-25', SPAETER).status, ROT); // neuer Plan: Mittwoch Pflicht
+});
+
 test('Wochenwertung: drei Bereiche getrennt, Training x von y Plantagen', () => {
   const s = stand();
   const kcal = { [MO]: 2200, [DI]: 2300, [MI]: 1900, [DO]: 2150, [FR]: 2460, [SA]: 2100, [SO]: 2500 };

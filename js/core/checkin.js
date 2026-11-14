@@ -18,8 +18,12 @@ export function wochenWerte(state, mo, heuteIso) {
     .sort((a, b) => (a.datum < b.datum ? 1 : -1));
   const bauch = bauchListe[0] || null;
 
-  const kraftSoll = tage.filter((d) => { const p = planTag(state.einstellungen, d); return p && p.typ === 'kraft'; }).length;
-  const kraftIst = new Set(state.trainings.filter((t) => t.typ === 'kraft' && t.datum >= mo && t.datum <= so).map((t) => t.datum)).size;
+  // Soll = Pflichttage laut Plan. Krafteinheiten an anderen Tagen (z. B. Samstag) zählen als Bonus.
+  const pflichttage = tage.filter((d) => { const p = planTag(state.einstellungen, d); return p && p.typ === 'kraft'; });
+  const krafttage = new Set(state.trainings.filter((t) => t.typ === 'kraft' && t.datum >= mo && t.datum <= so).map((t) => t.datum));
+  const kraftSoll = pflichttage.length;
+  const kraftIst = pflichttage.filter((d) => krafttage.has(d)).length;
+  const kraftBonus = krafttage.size - kraftIst;
 
   let fussball = 'kein Fußballtag';
   const wertung = wochenWertung(state, mo, heuteIso);
@@ -36,7 +40,7 @@ export function wochenWerte(state, mo, heuteIso) {
     montag: mo, sonntag: so, kw: kw(mo),
     gewicht, gewichtVor, gewichtDiff: gewicht !== null && gewichtVor !== null ? gewicht - gewichtVor : null,
     bauch: bauch ? { cm: bauch.bauch_cm, datum: bauch.datum, inWoche: bauch.datum >= mo } : null,
-    kraftIst, kraftSoll, fussball,
+    kraftIst, kraftSoll, kraftBonus, fussball,
     schritte: feld('schritte'), kcal: feld('kcal'), eiweiss: feld('eiweiss_g'),
     ballaststoffe: feld('ballaststoffe_g'), gesFett: feld('ges_fett_g'),
     schlaf: feld('schlaf_h'), schlafQualitaet: feld('schlaf_qualitaet'), stress: feld('stress'),
@@ -54,7 +58,7 @@ export function checkinZeilen(w) {
   return [
     ['Gewicht Ø', w.gewicht === null ? '–' : `${fmt(w.gewicht, 1, true)} kg (${w.gewichtDiff === null ? 'keine Vorwoche' : vz(w.gewichtDiff) + ' kg zur Vorwoche'})`],
     ['Bauchumfang', w.bauch ? `${fmt(w.bauch.cm, 1)} cm (${de(w.bauch.datum)}${w.bauch.inWoche ? '' : ', ältere Messung'})` : '–'],
-    ['Krafteinheiten', `${w.kraftIst} von ${w.kraftSoll}`],
+    ['Krafteinheiten', `${w.kraftIst} von ${w.kraftSoll}${w.kraftBonus ? ` + ${w.kraftBonus} Bonus` : ''}`],
     ['Fußball', w.fussball],
     ['Schritte Ø', fmt(w.schritte)],
     ['Kalorien Ø', w.kcal === null ? '–' : `${fmt(w.kcal)} kcal`],
@@ -76,7 +80,7 @@ export function checkinJson(w, frei = {}) {
     minimalversion: w.minimal,
     gewicht_schnitt_kg: runde(w.gewicht, 2), gewicht_diff_vorwoche_kg: runde(w.gewichtDiff, 2),
     bauch_cm: w.bauch ? w.bauch.cm : null, bauch_datum: w.bauch ? w.bauch.datum : null,
-    kraft_ist: w.kraftIst, kraft_soll: w.kraftSoll, fussball: w.fussball,
+    kraft_ist: w.kraftIst, kraft_soll: w.kraftSoll, kraft_bonus: w.kraftBonus, fussball: w.fussball,
     schritte_schnitt: runde(w.schritte, 0), kcal_schnitt: runde(w.kcal, 0), eiweiss_schnitt_g: runde(w.eiweiss, 0),
     ballaststoffe_schnitt_g: runde(w.ballaststoffe, 1), ges_fett_schnitt_g: runde(w.gesFett, 1),
     schlaf_schnitt_h: runde(w.schlaf, 1), schlaf_qualitaet_schnitt: runde(w.schlafQualitaet, 1), stress_schnitt: runde(w.stress, 1),

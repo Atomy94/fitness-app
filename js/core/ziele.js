@@ -103,7 +103,10 @@ export function minimalAktiv(einstellungen, datum) {
 
 /** Planeintrag des Wochentags (oder null). */
 export function planTag(einstellungen, datum) {
-  const wp = (einstellungen.plan && einstellungen.plan.wochenplan) || {};
+  const plan = einstellungen.plan || {};
+  // Frühere Wochenpläne gelten für Tage bis zu ihrem "bis"-Datum weiter.
+  const frueher = (plan.wochenplanAlt || []).filter((a) => datum <= a.bis).sort((a, b) => (a.bis < b.bis ? -1 : 1))[0];
+  const wp = (frueher ? frueher.wochenplan : plan.wochenplan) || {};
   const e = wp[wochentag(datum)];
   return e && e.typ && e.typ !== 'frei' ? e : null;
 }
