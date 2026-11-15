@@ -136,7 +136,8 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 - **Nichts wird automatisch übernommen.** Jede Datei erscheint mit Vorschau unter „Claude-Verbindung“ (Hinweis auf „Heute“); „Übernehmen“ oder „Verwerfen“ verschiebt sie nach `erledigt/`.
 - Der erfolgreiche Abgleich setzt `letzteSicherung` (die Dropbox-Sicherung zählt).
 - `LIESMICH-fuer-Claude.md` wird neu hochgeladen, wenn sich App-Version oder `LIESMICH_VERSION` ändert. Bei Änderungen am Importformat den Text in `liesmichDatei()` anpassen.
-- **Noch nicht gegen die echte Dropbox geprüft** (Stand 15.11.2026): getestet mit nachgebautem fetch in Node und im Browser. Offen: Anmeldung aus der Homescreen-App auf dem iPhone und ob Claudes Dropbox-Connector Dateien in `eingang/` anlegen kann.
+- **Prüfstand (15.11.2026):** Anmeldung und erster Abgleich mit dem echten Dropbox-Konto des Nutzers funktionieren in Chrome am Computer (Version 1.2.1). Noch offen: Anmeldung aus der Homescreen-App auf dem iPhone und ob Claudes Dropbox-Connector Dateien in `eingang/` anlegen kann.
+- Eine begonnene Anmeldung (`verifier`, `anmeldeUrl`) bleibt gespeichert, bis sie abgeschlossen oder verworfen wird. Sonst passt ein schon geholter Code nach einem Neuladen nicht mehr.
 
 ## Training durchführen und Steigerung
 
