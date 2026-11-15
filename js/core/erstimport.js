@@ -5,6 +5,7 @@ import { istDatum, plusTage } from './datum.js';
 import { parseZahl } from './zahl.js';
 import { standardZiele, setzeZiel } from './ziele.js';
 import { standardEinstellungen, standardWochenplan, neueId } from './state.js';
+import { rezepteAusArchiv } from './rezepte.js';
 
 // Laborwerte: Schlüssel aus der Datei → [deutscher Name, Einheit]
 const BLUT = {
@@ -188,13 +189,15 @@ export function ausHealthData(d, heuteIso) {
     }
   }
 
-  const state = { tage, trainings, messungen, blutwerte, ziele, einstellungen: e, checkins: {} };
+  const rezepte = rezepteAusArchiv(e.archiv);
+  const state = { tage, trainings, messungen, blutwerte, ziele, einstellungen: e, checkins: {}, rezepte };
   const ungenau = Object.values(tage).filter((t) => t.ungenau).length;
   const bericht = [
     `${Object.keys(tage).length} Tage`,
     `${trainings.filter((t) => t.typ === 'kraft').length} Krafteinheiten, ${trainings.filter((t) => t.typ === 'cardio').length} Cardio-Einheiten`,
     `${messungen.length} Messungen, ${blutwerte.length} Blutwerte`,
     `Trainingsplan mit ${Object.keys(e.plan.einheiten).length} Einheiten, ${ziele.length} Zielwerte`,
+    `${rezepte.length} Rezepte`,
     ungenau ? `${ungenau} Tage als „Werte ungenau“ markiert (Eiweiß 5–15 g zu niedrig)` : null,
   ].filter(Boolean);
   return { state, bericht };

@@ -187,8 +187,11 @@ body { overflow-x: hidden; }
 
 /* Training */
 .timer { position: sticky; top: calc(env(safe-area-inset-top) + 53px); z-index: 4; background: var(--karte); border: 1px solid var(--rand); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
-.timer .gross { font-size: 26px; font-weight: 700; }
+.timer .gross { font-size: 24px; font-weight: 700; }
+.timer .knopf.schmal { min-height: 44px; padding: 0 6px; }
 .timer.ueber .gross.zeit { color: var(--rot); }
+.timer.angehalten { border-color: var(--gelb); background: var(--gelb-bg); }
+.timer.angehalten .gross.zeit { color: var(--text2); }
 .timer .pause { color: var(--akzent); }
 .timer .pause.fertig { color: var(--gruen); }
 .satz { display: grid; grid-template-columns: 26px 1fr 14px 1fr 52px; gap: 6px; align-items: center; margin-bottom: 6px; }

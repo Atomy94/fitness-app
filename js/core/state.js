@@ -4,7 +4,9 @@
 import { standardZiele } from './ziele.js';
 import { plusTage, montag } from './datum.js';
 
-export const SAMMLUNGEN = ['tage', 'trainings', 'messungen', 'blutwerte', 'ziele', 'einstellungen', 'checkins'];
+import { rezepteAusArchiv } from './rezepte.js';
+
+export const SAMMLUNGEN = ['tage', 'trainings', 'messungen', 'blutwerte', 'ziele', 'einstellungen', 'checkins', 'rezepte'];
 
 export function neueId() {
   if (globalThis.crypto && globalThis.crypto.randomUUID) return globalThis.crypto.randomUUID();
@@ -61,12 +63,15 @@ export function leererState(heuteIso) {
     ziele: standardZiele(start),
     einstellungen: standardEinstellungen(start),
     checkins: {},
+    rezepte: [],
   };
 }
 
 /** Füllt fehlende Teile auf (z. B. nach dem Wiederherstellen einer älteren Sicherung). */
 export function ergaenze(state, heuteIso) {
   const leer = leererState(heuteIso);
+  // Stände aus Version 1.0 kennen noch keine Rezepte: aus den aufbewahrten Rohdaten nachziehen.
+  if (!Array.isArray(state.rezepte)) state.rezepte = rezepteAusArchiv(state.einstellungen && state.einstellungen.archiv);
   for (const s of SAMMLUNGEN) if (state[s] === undefined || state[s] === null) state[s] = leer[s];
   const e = state.einstellungen;
   for (const [k, v] of Object.entries(leer.einstellungen)) if (e[k] === undefined) e[k] = v;

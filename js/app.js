@@ -9,6 +9,7 @@ import { tagScreen } from './ui/tag.js';
 import { trainingScreen } from './ui/training.js';
 import { fortschrittScreen } from './ui/fortschritt.js';
 import { mehrScreen } from './ui/mehr.js';
+import { rezepteScreen } from './ui/rezepte.js';
 
 // Neuer Bildschirm (z. B. Rezeptrechner)? Modul in js/ui/ anlegen und hier eintragen.
 const SCREENS = {
@@ -18,8 +19,9 @@ const SCREENS = {
   training: trainingScreen,
   fortschritt: fortschrittScreen,
   mehr: mehrScreen,
+  rezepte: rezepteScreen,
 };
-const NAV = { tag: 'kalender' };
+const NAV = { tag: 'kalender', rezepte: 'mehr' };
 
 const inhalt = document.getElementById('inhalt');
 const titel = document.getElementById('titel');

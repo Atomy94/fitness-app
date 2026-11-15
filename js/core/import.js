@@ -6,6 +6,7 @@ import { istDatum, de } from './datum.js';
 import { parseZahl, fmt } from './zahl.js';
 import { ZIEL_INFO, setzeZiel } from './ziele.js';
 import { neueId } from './state.js';
+import { KATEGORIEN, neuesRezept } from './rezepte.js';
 
 export const KOPF = 'FITNESS-IMPORT v1';
 
@@ -29,6 +30,11 @@ export const FELDER = {
     quelle: ['text'], ungueltig: ['bool'], grund: ['text'],
   },
   ziel: { gueltig_ab: ['datum*'], schluessel: ['text*'], wert: ['zahl*', -1e9, 1e9] },
+  rezept: {
+    name: ['text*'], kategorie: ['kategorie'], bezug: ['bezug'], portion: ['text'], zutaten: ['zutaten'], notiz: ['text'],
+    kcal: Z(0, 15000), eiweiss_g: Z(0, 1000), kh_g: Z(0, 2000), fett_g: Z(0, 1000),
+    ges_fett_g: Z(0, 500), zucker_g: Z(0, 1000), ballaststoffe_g: Z(0, 500), salz_g: Z(0, 100),
+  },
   blutwert: { name: ['text*'], wert: Z(-1e9, 1e9), wert_text: ['text'], einheit: ['text'], norm_min: Z(-1e9, 1e9), norm_max: Z(-1e9, 1e9) },
 };
 
@@ -43,9 +49,11 @@ export const FELD_NAMEN = {
   viszeral: 'Viszeralfett', grundumsatz_kcal: 'Grundumsatz (kcal)', liegestuetze_max: 'Liegestütze am Stück',
   kniebeugen_max: 'Kniebeugen am Stück', quelle: 'Quelle', ungueltig: 'Ungültig', grund: 'Grund',
   wert: 'Wert', wert_text: 'Wert (Text)', norm_min: 'Norm ab', norm_max: 'Norm bis', name: 'Name',
+  kategorie: 'Kategorie', bezug: 'Nährwerte gelten', portion: 'Portion', zutaten: 'Zutaten',
 };
 
-const TYP_NAMEN = { tag: 'Tag', training: 'Training', cardio: 'Cardio', messung: 'Messung', ziel: 'Ziel', blutwert: 'Blutwert' };
+const TYP_NAMEN = { tag: 'Tag', training: 'Training', cardio: 'Cardio', messung: 'Messung', ziel: 'Ziel', blutwert: 'Blutwert', rezept: 'Rezept' };
+const OHNE_DATUM = ['ziel', 'rezept'];
 
 function pruefeWert(spec, wert, wo, fehler) {
   const typ = spec[0].replace('*', '');
@@ -69,6 +77,25 @@ function pruefeWert(spec, wert, wo, fehler) {
     return wert;
   }
   if (typ === 'uebungen') return pruefeUebungen(wert, wo, fehler);
+  if (typ === 'kategorie') {
+    const k = KATEGORIEN.find((x) => x.toLowerCase() === String(wert).trim().toLowerCase());
+    if (!k) { fehler.push(`${wo}: unbekannte Kategorie ${JSON.stringify(wert)}. Erlaubt: ${KATEGORIEN.join(', ')}.`); return undefined; }
+    return k;
+  }
+  if (typ === 'bezug') {
+    if (wert !== 'portion' && wert !== '100g') { fehler.push(`${wo}: muss "portion" oder "100g" sein.`); return undefined; }
+    return wert;
+  }
+  if (typ === 'zutaten') {
+    if (!Array.isArray(wert)) { fehler.push(`${wo}: muss eine Liste sein.`); return undefined; }
+    const aus = [];
+    wert.forEach((z, i) => {
+      if (!z || typeof z !== 'object' || typeof z.name !== 'string' || !z.name.trim()) { fehler.push(`${wo}[${i + 1}]: jede Zutat braucht einen "name".`); return; }
+      const menge = typeof z.menge === 'number' ? `${fmt(z.menge, 2)} g` : typeof z.menge === 'string' ? z.menge.trim() : '';
+      aus.push({ name: z.name.trim(), menge });
+    });
+    return aus;
+  }
   return undefined;
 }
 
@@ -135,13 +162,13 @@ export function leseImport(text) {
     const wo = `${nr} (${TYP_NAMEN[roh.typ]})`;
     const e = { typ: roh.typ };
 
-    if (roh.typ !== 'ziel') {
+    if (!OHNE_DATUM.includes(roh.typ)) {
       if (!istDatum(roh.datum)) { fehler.push(`${wo}: ungültiges oder fehlendes Datum ${JSON.stringify(roh.datum)} (erwartet JJJJ-MM-TT).`); return; }
       e.datum = roh.datum;
     }
     const unbekannt = [];
     for (const [feld, wert] of Object.entries(roh)) {
-      if (feld === 'typ' || (feld === 'datum' && roh.typ !== 'ziel')) continue;
+      if (feld === 'typ' || (feld === 'datum' && !OHNE_DATUM.includes(roh.typ))) continue;
       const spec = felder[feld];
       if (!spec) { unbekannt.push(feld); continue; }
       if (wert === null) continue; // null = nicht ändern
@@ -252,6 +279,15 @@ export function verarbeite(stateAlt, eintraege, optionen = {}) {
         p.felder = [{ feld: 'wert', alt: alt ? alt.wert : null, neu: e.wert }];
         setzeZiel(state.ziele, e.schluessel, e.gueltig_ab, e.wert);
       }
+    } else if (e.typ === 'rezept') {
+      p.titel = `Rezept „${e.name}“`;
+      if (!Array.isArray(state.rezepte)) state.rezepte = [];
+      let r = state.rezepte.find((x) => x.name.trim().toLowerCase() === e.name.toLowerCase());
+      const vorhanden = !!r;
+      if (!r) { r = { ...neuesRezept(e.kategorie), name: e.name }; state.rezepte.push(r); }
+      const diff = mische(r, e, Object.keys(FELDER.rezept).filter((f) => f !== 'name'));
+      p.felder = diff.map((d) => (d.feld === 'zutaten' ? { feld: 'zutaten', alt: d.alt ? `${d.alt.length} Zutaten` : null, neu: d.neu.map((z) => `${z.menge} ${z.name}`.trim()).join(', ') } : d));
+      p.art = !vorhanden ? 'neu' : p.felder.length ? 'aenderung' : 'gleich';
     } else if (e.typ === 'blutwert') {
       p.titel = `Blutwert ${e.name}, ${de(e.datum)}`;
       let b = state.blutwerte.find((x) => x.datum === e.datum && x.name === e.name);

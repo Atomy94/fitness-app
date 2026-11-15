@@ -93,5 +93,13 @@ export function demoState(heuteIso) {
     { id: 'demo-b3', datum: plusTage(start, 3), name: 'Ferritin', wert: 250, einheit: 'ng/ml', norm_min: 30, norm_max: 400 },
     { id: 'demo-b4', datum: plusTage(start, 3), name: 'HDL-Cholesterin', wert: 38, einheit: 'mg/dl', norm_min: 40, norm_max: 80 },
   ];
-  return { tage, trainings, messungen, blutwerte, ziele, einstellungen: e, checkins: {} };
+  const z = (name, menge) => ({ name, menge });
+  const rezepte = [
+    { id: 'demo-r1', name: 'Overnight Oats', kategorie: 'Frühstück', bezug: 'portion', portion: '1 Schale', kcal: 540, eiweiss_g: 50, kh_g: 58, fett_g: 9, ballaststoffe_g: 9, zutaten: [z('Haferflocken', '60 g'), z('Magerquark', '250 g'), z('Beeren', '100 g'), z('Chiasamen', '10 g')], notiz: 'Abends vorbereiten' },
+    { id: 'demo-r2', name: 'Rührei mit Gemüse', kategorie: 'Frühstück', bezug: 'portion', portion: '1 Teller', kcal: 420, eiweiss_g: 30, kh_g: 8, fett_g: 28, zutaten: [z('Eier', '3 Stück'), z('Paprika', '100 g'), z('Spinat', '50 g')], notiz: '' },
+    { id: 'demo-r3', name: 'Linsensalat', kategorie: 'Mittagessen', bezug: 'portion', portion: '1 Dose (400 g)', kcal: 480, eiweiss_g: 32, kh_g: 52, fett_g: 12, ballaststoffe_g: 14, zutaten: [z('Linsen gekocht', '250 g'), z('Feta', '50 g'), z('Gurke', '100 g')], notiz: '' },
+    { id: 'demo-r4', name: 'Chili sin Carne', kategorie: 'Abendessen', bezug: '100g', portion: '', kcal: 72, eiweiss_g: 7.3, kh_g: 6.6, fett_g: 1.6, ballaststoffe_g: 2.3, salz_g: 0.35, zutaten: [], notiz: 'Ganzer Topf ca. 2 kg' },
+    { id: 'demo-r5', name: 'Eiweiß-Shake', kategorie: 'Snacks', bezug: 'portion', portion: '300 ml', kcal: 116, eiweiss_g: 22, kh_g: 2.4, fett_g: 1.8, zutaten: [z('Whey', '30 g'), z('Wasser', '300 ml')], notiz: 'Nachmittags' },
+  ];
+  return { tage, trainings, messungen, blutwerte, ziele, einstellungen: e, checkins: {}, rezepte };
 }

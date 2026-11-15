@@ -10,7 +10,8 @@ Entscheidungen selbst und begründe sie kurz. Frag nur, wenn eine Entscheidung d
 - Kein Server, keine Internet-Datenbank, keine kostenpflichtigen Dienste, kein Tracking, keine CDNs, **keine fremden Bibliotheken**.
 - Daten liegen nur auf dem Gerät in IndexedDB. Hosting der Dateien: GitHub Pages.
 - Essen wird NICHT in der App geloggt. Tageswerte kommen aus Yazio über den Claude-Import.
-- Stufe 1 enthält bewusst keinen Rezeptrechner, keine Übungsbilder, keine automatische Schritte-Übertragung.
+- Rezepte (seit 1.1) dienen nur zum Nachschlagen von Mengen und Nährwerten; sie fließen nicht in die Tageswerte ein.
+- Noch nicht enthalten: Rezeptrechner mit Topfgewicht, Übungsbilder, automatische Schritte-Übertragung.
 
 ## Feste Regeln
 
@@ -57,11 +58,13 @@ js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   import.js             Claude-Import (prüfen, Vorschau, anwenden)
   erstimport.js         health-data.json → App-Stand
   checkin.js            Wochenwerte und Text für Claude
+  rezepte.js            Kategorien, Nährwertfelder, Übernahme aus dem Archiv, Portion aus 100-g-Werten
+  kraft.js              Verlauf je Übung (Gewicht × Wdh.), Kennzahlen, Vergleich zur Vorgänger-Einheit
   demo.js               Testdaten (3 Wochen, erfunden)
 js/ui/                  Bildschirme, je ein Modul
   dom.js                Bausteine: h(), Felder, Punkte, Ring, Diagramm (eigenes SVG)
-  heute.js  kalender.js  tag.js  training.js  fortschritt.js  mehr.js
-tests/                  node:test – bewertung, import, weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
+  heute.js  kalender.js  tag.js  training.js  fortschritt.js  mehr.js  rezepte.js (#rezepte, erreichbar über „Mehr“)
+tests/                  node:test – bewertung, import, rezepte-kraft, weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
 tools/                  server.mjs (Vorschau), make-icons.mjs
 ```
 
@@ -80,7 +83,8 @@ IndexedDB-Datenbank `fitness-app` (echte Daten) bzw. `fitness-app-demo` (Testdat
 | `ziele` | Liste: `{ id, schluessel, gueltig_ab, wert }` – Schlüssel siehe `ZIEL_INFO` / IMPORT-FORMAT.md |
 | `einstellungen` | `start, profil, phasen, minimal.zeitraeume[{von,bis}], minimalKraft, plan{maxMinuten, wochenplan{1..7}, wochenplanAlt[{bis, wochenplan}], einheiten{Name:[Übungen]}, progression}, zielpfad{von,bis}, pauseSek, supplements, letzteSicherung, eingerichtet, archiv` |
 | `checkins` | Objekt je Montag: `{ verdauung, besonderheiten }` |
-| `entwurf` | laufendes Training (nicht Teil der Sicherung) |
+| `rezepte` | Liste: `{ id, name, kategorie (Frühstück/Mittagessen/Abendessen/Snacks), bezug:'portion'|'100g', portion, zutaten:[{ name, menge }], kcal, eiweiss_g, kh_g, fett_g, ges_fett_g, zucker_g, ballaststoffe_g, salz_g, notiz }`. Fehlt die Sammlung (Stand aus 1.0), baut `ergaenze()` sie aus `einstellungen.archiv`. |
+| `entwurf` | laufendes Training (nicht Teil der Sicherung): Übungen mit Sätzen, `startMs`, `angehaltenSeit`, `angehaltenMs` (angehaltene Zeit zählt nicht zur Dauer), `pauseBis` (Satzpause) |
 
 Sicherungsdatei: `{ "format": "fitness-sicherung", "version": 1, "erstellt", "daten": { alle Sammlungen } }`, Name `fitness-sicherung-JJJJ-MM-TT.json`.
 
@@ -109,7 +113,7 @@ Status: `gruen` geschafft · `gelb` knapp · `rot` verfehlt · `grau` trifft nic
 Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 
 - Textblock beginnt mit `FITNESS-IMPORT v1`, danach JSON `{ "eintraege": [ … ] }`.
-- Typen: `tag`, `training`, `cardio`, `messung`, `ziel`, `blutwert`.
+- Typen: `tag`, `training`, `cardio`, `messung`, `ziel`, `blutwert`, `rezept` (ohne Datum, Schlüssel ist der Name).
 - Pflicht nur `typ` und `datum` (plus Kennfelder: `einheit`, `art`, `name`, bei `ziel`: `gueltig_ab`, `schluessel`, `wert`).
 - Nur vorhandene Felder werden übernommen; `null` = nicht ändern.
 - Vorschau (neu / alt → neu) vor dem Speichern; gespeichert wird erst nach „Übernehmen“.
@@ -118,7 +122,16 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 - Unbekannte Felder werden ignoriert und als Hinweis gezeigt.
 - Erweiterungen: nur neue optionale Felder/Typen; sonst neue Kopfzeile `v2`, `v1` bleibt lesbar.
 
+## Training durchführen und Steigerung
+
+- Timer oben: **Anhalten/Fortsetzen** (ganze Einheit, Zeit steht) und **Beenden** (speichert bestätigte Sätze, fragt bei offenen Sätzen nach). Darunter die Satzpause, die nach jedem ✓ automatisch startet.
+- Jede gespeicherte Einheit hält je Übung alle Sätze mit Gewicht und Wiederholungen fest.
+- **„Steigerung je Übung“** (auf „Training“ und „Fortschritt“): letzter Stand je Übung, Veränderung zur vorherigen Einheit und seit dem ersten Eintrag. Detail je Übung: Bestwert, Diagramme (Gewicht, Wiederholungen, Gewicht × Wdh.), alle Einträge mit Veränderung.
+- Übungen werden über `uebungsSchluessel()` zusammengeführt (Name bis zum ersten Komma oder zur ersten Klammer, Kleinschreibung). Mehr Gewicht zählt als Steigerung, auch bei weniger Wiederholungen.
+
 ## Besonderheiten der Daten
+
+- Rezepte aus der health-data.json: `standard_meals` (pro Portion) und `foods_per_100g` (pro 100 g). Die Kategorie wird geschätzt (Gerichte → Abendessen) und ist in der App änderbar.
 
 - Eiweißwerte bis 13.11.2026 sind 5–15 g zu niedrig (falsches Proteinpulver in Yazio). Diese Tage tragen `ungenau: true` und werden als „Werte ungenau“ gezeigt. Ein neuer Eiweißwert per Import entfernt die Markierung.
 - Die Minimalversion beginnt laut Erstimport am 07.12.2026 ohne Enddatum (Prüfungstermin unbekannt); der Nutzer schaltet sie aus oder trägt ein Ende ein.

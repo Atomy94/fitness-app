@@ -2,6 +2,7 @@
 
 import { S, heuteIso, neu, speichern, meldung } from '../store.js';
 import { h, karte, diagramm, zahlFeld, datumFeld } from './dom.js';
+import { steigerungKarte } from './training.js';
 import { gleitSchnitt, zielpfad } from '../core/bewertung.js';
 import { zielWert, minimalAktiv } from '../core/ziele.js';
 import { neueId } from '../core/state.js';
@@ -163,5 +164,5 @@ function messListe() {
 
 export function fortschrittScreen() {
   const d = heuteIso();
-  return { titel: 'Fortschritt', knoten: h('div', null, minimalKarte(d), bauchKarte(d), gewichtKarte(d), eingabeKarte(d), tanitaKarte(), kraftKarte(), messListe()) };
+  return { titel: 'Fortschritt', knoten: h('div', null, minimalKarte(d), bauchKarte(d), gewichtKarte(d), eingabeKarte(d), steigerungKarte(), tanitaKarte(), kraftKarte(), messListe()) };
 }

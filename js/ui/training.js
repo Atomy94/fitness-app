@@ -7,6 +7,7 @@ import { einheitText } from './tag.js';
 import { minimalAktiv, planTag } from '../core/ziele.js';
 import { neueId, uebungsSchluessel, tagVon } from '../core/state.js';
 import { fmt } from '../core/zahl.js';
+import { uebungsVerlaeufe, vergleich } from '../core/kraft.js';
 import { WT_LANG, wochentag, de, deKurz, deMitTag, istDatum } from '../core/datum.js';
 
 const enc = encodeURIComponent;
@@ -45,6 +46,29 @@ function zielText(u) {
   return `${u.saetze} × ${menge}${u.kg ? ` · ${fmt(u.kg, 1)} kg${u.kg_text ? ` (${u.kg_text})` : ''}` : ''}`;
 }
 
+// ---------- Steigerung je Übung ----------
+
+const trendMarke = (v) => h('span', { class: `marke s-${v.richtung > 0 ? 'gruen' : v.richtung < 0 ? 'gelb' : 'grau'}` }, `${v.richtung > 0 ? '↑' : v.richtung < 0 ? '↓' : '='} ${v.text}`);
+
+/** Liste aller Übungen: letzter Stand (Gewicht × Wiederholungen) und Veränderung. Auch auf "Fortschritt". */
+export function steigerungKarte() {
+  const verlaeufe = uebungsVerlaeufe(S.state);
+  return karte('Steigerung je Übung',
+    verlaeufe.length ? h('div', { class: 'liste' }, verlaeufe.map((v) => {
+      const l = v.eintraege.at(-1);
+      const vor = v.eintraege.at(-2);
+      const erste = v.eintraege[0];
+      return h('a', { href: `#training/uebung/${enc(v.key)}` },
+        h('span', { class: 'wachs' }, h('b', null, v.name),
+          h('div', { class: 'klein' }, `${satzText(l.saetze)} · ${deKurz(l.datum)}`),
+          v.eintraege.length > 2 ? h('div', { class: 'klein' }, `seit ${deKurz(erste.datum)}: ${vergleich(erste, l).text}`) : null),
+        vor ? trendMarke(vergleich(vor, l)) : h('span', { class: 'marke neutral' }, 'erster Eintrag'),
+        h('span', { class: 'pfeil' }, '›'));
+    })) : h('p', { class: 'leer' }, 'Noch keine Krafteinheiten. Nach dem ersten Training erscheint hier jede Übung mit Gewicht und Wiederholungen.'),
+    verlaeufe.length ? h('p', { class: 'klein abstand' }, 'Die Marke zeigt die Veränderung zur vorherigen Einheit. Tippe auf eine Übung für den ganzen Verlauf.') : null,
+  );
+}
+
 // ---------- Übersicht ----------
 
 function uebersicht() {
@@ -56,8 +80,6 @@ function uebersicht() {
   const minimal = minimalAktiv(e, d);
   const einheiten = Object.keys(e.plan.einheiten);
   const letzte = sortiert().slice(0, 8);
-  const uebungen = new Map();
-  for (const t of st.trainings) for (const u of t.uebungen || []) if (u.saetze && u.saetze.length && !uebungen.has(uebungsSchluessel(u.name))) uebungen.set(uebungsSchluessel(u.name), u.name.split(/[,(]/)[0].trim());
 
   const knoten = h('div', null,
     S.entwurf ? h('a', { class: 'hinweis info', href: `#training/start/${enc(S.entwurf.einheit)}/${S.entwurf.datum}` }, `Laufendes Training: ${S.entwurf.einheit}`, h('small', null, 'Tippe hier, um fortzusetzen.')) : null,
@@ -85,9 +107,7 @@ function uebersicht() {
       letzte.length ? h('div', { class: 'liste' }, letzte.map(einheitZeile)) : h('p', { class: 'leer' }, 'Noch keine Einheiten'),
       st.trainings.length > 8 ? h('a', { class: 'knopf schmal breit abstand', href: '#training/liste' }, `Alle ${st.trainings.length} Einheiten`) : null,
     ),
-    karte('Verlauf pro Übung',
-      uebungen.size ? h('div', { class: 'liste' }, [...uebungen].sort((a, b) => a[1].localeCompare(b[1], 'de')).map(([key, name]) => h('a', { href: `#training/uebung/${enc(key)}` }, h('span', { class: 'wachs' }, name), h('span', { class: 'pfeil' }, '›')))) : h('p', { class: 'leer' }, 'Noch keine Übungen'),
-    ),
+    steigerungKarte(),
   );
   return { titel: 'Training', knoten };
 }
@@ -160,6 +180,9 @@ function ton(anzahl = 2) {
   } catch { /* ignorieren */ }
 }
 
+/** Reine Trainingszeit: angehaltene Zeit zählt nicht mit. */
+const laufzeit = (en) => (en.angehaltenSeit || Date.now()) - en.startMs - (en.angehaltenMs || 0);
+
 const mmss = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 function beende(nurBestaetigte) {
@@ -173,7 +196,7 @@ function beende(nurBestaetigte) {
   const live = en.datum === heuteIso() && en.dauer_min === null;
   const t = {
     id: neueId(), typ: 'kraft', datum: en.datum, einheit: en.einheit,
-    dauer_min: live ? Math.max(1, Math.round((Date.now() - en.startMs) / 60000)) : en.dauer_min,
+    dauer_min: live ? Math.max(1, Math.round(laufzeit(en) / 60000)) : en.dauer_min,
     verkuerzt: !!en.verkuerzt, uebungen, notiz: en.notiz || '',
   };
   const i = S.state.trainings.findIndex((x) => x.typ === 'kraft' && x.datum === t.datum && x.einheit === t.einheit);
@@ -209,24 +232,54 @@ function startScreen(einheit, datumArg) {
   const live = datum === heuteIso();
   const sichern = () => speichereEntwurf();
 
-  // Timer
+  const abschliessen = () => {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    const bestaetigt = en.uebungen.some((u) => u.saetze.some((x) => x.fertig));
+    if (bestaetigt) {
+      const offen = en.uebungen.reduce((n, u) => n + u.saetze.filter((x) => !x.fertig).length, 0);
+      if (offen && !confirm(`Training jetzt beenden? ${offen} ${offen === 1 ? 'Satz ist' : 'Sätze sind'} noch nicht bestätigt und ${offen === 1 ? 'wird' : 'werden'} nicht gespeichert.`)) return;
+      beende(true);
+    } else if (confirm('Du hast keinen Satz mit ✓ bestätigt. Alle Sätze so speichern, wie sie eingetragen sind?')) {
+      beende(false);
+    }
+  };
+
+  // Timer: oben die ganze Einheit (anhalten/fortsetzen/beenden), darunter die Satzpause.
   const zeitEl = h('span', { class: 'gross zeit' }, '0:00');
   const pauseEl = h('span', { class: 'gross pause' }, '');
+  const haltKnopf = h('button', { type: 'button', class: 'knopf schmal', onclick: () => {
+    if (en.angehaltenSeit) {
+      en.angehaltenMs = (en.angehaltenMs || 0) + (Date.now() - en.angehaltenSeit);
+      en.angehaltenSeit = null;
+    } else {
+      en.angehaltenSeit = Date.now();
+      en.pauseBis = null; en.pauseGemeldet = true; // Satzpause endet mit dem Anhalten
+    }
+    sichern(); tick();
+  } }, 'Anhalten');
   const timer = h('div', { class: 'timer', 'data-laeuft': '1' },
     h('div', { class: 'zeile' },
       h('div', { class: 'wachs' }, h('div', { class: 'klein' }, `Einheit (max. ${en.maxMin} Min.)`), zeitEl),
-      h('div', { class: 'rechtsb' }, h('div', { class: 'klein' }, 'Pause'), pauseEl),
+      h('div', { class: 'rechtsb' }, h('div', { class: 'klein' }, 'Satzpause'), pauseEl),
     ),
     h('div', { class: 'knopfreihe', style: 'margin-top:6px' },
-      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { tonBereit(); en.pauseBis = Date.now() + S.state.einstellungen.pauseSek * 1000; en.pauseGemeldet = false; sichern(); tick(); } }, `Pause ${S.state.einstellungen.pauseSek} Sek.`),
-      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.pauseBis) { en.pauseBis += 15000; en.pauseGemeldet = false; sichern(); tick(); } } }, '+15 Sek.'),
-      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { en.pauseBis = null; en.pauseGemeldet = true; sichern(); tick(); } }, 'Stopp'),
+      haltKnopf,
+      h('button', { type: 'button', class: 'knopf schmal', onclick: abschliessen }, 'Beenden'),
+    ),
+    h('div', { class: 'knopfreihe', style: 'margin-top:6px' },
+      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.angehaltenSeit) return; tonBereit(); en.pauseBis = Date.now() + S.state.einstellungen.pauseSek * 1000; en.pauseGemeldet = false; sichern(); tick(); } }, `Pause ${S.state.einstellungen.pauseSek} s`),
+      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.pauseBis) { en.pauseBis += 15000; en.pauseGemeldet = false; sichern(); tick(); } } }, '+15 s'),
+      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { en.pauseBis = null; en.pauseGemeldet = true; sichern(); tick(); } }, 'Pause aus'),
     ),
   );
   function tick() {
     const jetzt = Date.now();
-    const lauf = jetzt - en.startMs;
-    zeitEl.textContent = `${mmss(lauf)} / ${en.maxMin}:00`;
+    const lauf = laufzeit(en);
+    const haelt = !!en.angehaltenSeit;
+    zeitEl.textContent = `${mmss(lauf)} / ${en.maxMin}:00${haelt ? ' ⏸' : ''}`;
+    haltKnopf.textContent = haelt ? 'Fortsetzen' : 'Anhalten';
+    haltKnopf.classList.toggle('haupt', haelt);
+    timer.classList.toggle('angehalten', haelt);
     timer.classList.toggle('ueber', lauf >= en.maxMin * 60000);
     if (lauf >= en.maxMin * 60000 && !en.zeitGemeldet) { en.zeitGemeldet = true; sichern(); ton(3); }
     if (en.pauseBis) {
@@ -258,7 +311,7 @@ function startScreen(einheit, datumArg) {
           h('button', { type: 'button', class: 'ok', 'aria-label': `Satz ${i + 1} bestätigen`, onclick: () => {
             x.fertig = !x.fertig;
             zeile.classList.toggle('fertig', x.fertig);
-            if (x.fertig && live) { tonBereit(); en.pauseBis = Date.now() + S.state.einstellungen.pauseSek * 1000; en.pauseGemeldet = false; tick(); }
+            if (x.fertig && live && !en.angehaltenSeit) { tonBereit(); en.pauseBis = Date.now() + S.state.einstellungen.pauseSek * 1000; en.pauseGemeldet = false; tick(); }
             sichern();
           } }, '✓'),
         );
@@ -295,11 +348,7 @@ function startScreen(einheit, datumArg) {
       live ? h('label', { class: 'feld' }, h('span', null, 'Pausentimer'), pauseWahl) : zahlFeld({ label: 'Dauer', einheit: 'Min.', wert: en.dauer_min, min: 0, max: 600, onChange: (v) => { en.dauer_min = v; sichern(); } }),
       h('label', { class: 'zeile', style: 'min-height:48px' }, verkuerztBox, h('span', { class: 'wachs' }, 'Verkürzt trainiert (zählt gelb)')),
       textFeld({ label: 'Notiz zur Einheit', wert: en.notiz, mehrzeilig: true, onChange: (v) => { en.notiz = v; sichern(); } }),
-      h('button', { type: 'button', class: 'knopf haupt breit', onclick: () => {
-        const bestaetigt = en.uebungen.some((u) => u.saetze.some((x) => x.fertig));
-        if (bestaetigt) return beende(true);
-        if (confirm('Du hast keinen Satz mit ✓ bestätigt. Alle Sätze so speichern, wie sie eingetragen sind?')) beende(false);
-      } }, 'Training beenden und speichern'),
+      h('button', { type: 'button', class: 'knopf haupt breit', onclick: abschliessen }, 'Training beenden und speichern'),
       h('button', { type: 'button', class: 'knopf gefahr breit abstand', onclick: () => { if (confirm('Training verwerfen? Die Eingaben gehen verloren.')) { S.entwurf = null; speichereEntwurf(); location.hash = '#training'; } } }, 'Verwerfen'),
     ),
   );
@@ -349,6 +398,7 @@ function cardioScreen(artArg, datumArg) {
 function einheitScreen(id) {
   const t = S.state.trainings.find((x) => x.id === id);
   if (!t) return { titel: 'Einheit', zurueck: 'training', knoten: h('p', { class: 'leer' }, 'Diese Einheit gibt es nicht mehr.') };
+  const verlaeufe = t.typ === 'kraft' ? uebungsVerlaeufe(S.state) : [];
   const loesche = () => {
     if (!confirm('Diese Einheit endgültig löschen?')) return;
     S.state.trainings = S.state.trainings.filter((x) => x !== t);
@@ -365,6 +415,14 @@ function einheitScreen(id) {
       ? (t.uebungen || []).map((u) => h('section', { class: 'karte' },
         h('h2', null, h('a', { href: `#training/uebung/${enc(uebungsSchluessel(u.name))}` }, `${u.name} ›`)),
         u.saetze && u.saetze.length ? h('p', { class: 'fett' }, satzText(u.saetze)) : null,
+        (() => {
+          // Vergleich mit der vorherigen Einheit, in der diese Übung vorkam
+          const v = verlaeufe.find((x) => x.key === uebungsSchluessel(u.name));
+          const i = v ? v.eintraege.findIndex((e) => e.id === t.id) : -1;
+          if (i < 1) return null;
+          const vor = v.eintraege[i - 1];
+          return h('p', { class: 'zeile abstand' }, h('span', { class: 'wachs klein' }, `Davor (${deKurz(vor.datum)}): ${satzText(vor.saetze)}`), trendMarke(vergleich(vor, v.eintraege[i])));
+        })(),
         u.notiz ? h('p', { class: 'klein' }, u.notiz) : null))
       : null,
     t.typ === 'kraft' ? h('button', { type: 'button', class: 'knopf breit', style: 'margin-bottom:8px', onclick: () => { t.verkuerzt = !t.verkuerzt; speichern('trainings'); neu(); } }, t.verkuerzt ? 'Als vollständig markieren' : 'Als verkürzt markieren') : null,
@@ -376,16 +434,9 @@ function einheitScreen(id) {
 // ---------- Verlauf einer Übung ----------
 
 function uebungScreen(key) {
-  const eintraege = [];
-  let name = key;
-  for (const t of [...S.state.trainings].sort((a, b) => (a.datum < b.datum ? -1 : 1))) {
-    for (const u of t.uebungen || []) {
-      if (uebungsSchluessel(u.name) !== key || !u.saetze || !u.saetze.length) continue;
-      name = u.name.split(/[,(]/)[0].trim();
-      eintraege.push({ datum: t.datum, id: t.id, saetze: u.saetze, notiz: u.notiz });
-    }
-  }
-  if (!eintraege.length) return { titel: 'Übung', zurueck: 'training', knoten: h('p', { class: 'leer' }, 'Für diese Übung gibt es noch keine Einträge.') };
+  const verlauf = uebungsVerlaeufe(S.state).find((v) => v.key === key);
+  if (!verlauf) return { titel: 'Übung', zurueck: 'training', knoten: h('p', { class: 'leer' }, 'Für diese Übung gibt es noch keine Einträge.') };
+  const { eintraege, name } = verlauf;
   const alle = eintraege.flatMap((e) => e.saetze);
   const art = alle.some((x) => x.kg > 0) ? 'kg' : alle.some((x) => x.wdh !== undefined) ? 'wdh' : 'sek';
   const wert = (x) => (art === 'kg' ? (x.kg || 0) * (x.wdh || 0) : art === 'wdh' ? x.wdh || 0 : x.sek || 0);
@@ -396,11 +447,18 @@ function uebungScreen(key) {
 
   const knoten = h('div', null,
     karte('Bestwert', h('p', { style: 'font-size:26px;font-weight:700' }, text(best.satz)), h('p', { class: 'klein' }, `am ${de(best.e.datum)}`)),
-    karte('Verlauf', diagramm({ einheit, yMin: 0, serien: [{ klasse: 'c1', punkte: eintraege.map((e) => ({ x: e.datum, y: wert(besterSatz(e.saetze)) })) }] })),
-    karte('Alle Einträge', h('div', { class: 'liste' }, [...eintraege].reverse().map((e) => h('a', { href: `#training/einheit/${e.id}` },
-      h('span', { style: 'width:64px;flex:none;color:var(--text2);font-size:14px' }, deKurz(e.datum)),
-      h('span', { class: 'wachs' }, satzText(e.saetze), e.notiz ? h('div', { class: 'klein' }, e.notiz) : null),
-      h('span', { class: 'pfeil' }, '›'))))),
+    eintraege.length > 1 ? karte('Seit dem ersten Eintrag', h('p', { class: 'zeile' }, h('span', { class: 'wachs' }, `${satzText(eintraege[0].saetze)} → ${satzText(eintraege.at(-1).saetze)}`), trendMarke(vergleich(eintraege[0], eintraege.at(-1))))) : null,
+    art === 'kg' ? karte('Gewicht', diagramm({ einheit: 'kg (schwerster Satz je Einheit)', stellen: 1, serien: [{ klasse: 'c2', radius: 4, punkte: eintraege.map((e) => ({ x: e.datum, y: e.maxKg })) }] })) : null,
+    art !== 'sek' ? karte('Wiederholungen', diagramm({ einheit: 'Wiederholungen (alle Sätze zusammen)', yMin: 0, serien: [{ klasse: 'c3', radius: 4, punkte: eintraege.map((e) => ({ x: e.datum, y: e.wdhSumme })) }] })) : null,
+    karte(art === 'kg' ? 'Gewicht × Wiederholungen' : 'Verlauf', diagramm({ einheit, yMin: 0, serien: [{ klasse: 'c1', radius: 4, punkte: eintraege.map((e) => ({ x: e.datum, y: wert(besterSatz(e.saetze)) })) }] })),
+    karte('Alle Einträge', h('div', { class: 'liste' }, [...eintraege].reverse().map((e, i, liste) => {
+      const vor = liste[i + 1];
+      return h('a', { href: `#training/einheit/${e.id}` },
+        h('span', { style: 'width:52px;flex:none;color:var(--text2);font-size:14px' }, deKurz(e.datum)),
+        h('span', { class: 'wachs' }, h('b', null, satzText(e.saetze)), e.notiz ? h('div', { class: 'klein' }, e.notiz) : null),
+        vor ? trendMarke(vergleich(vor, e)) : null,
+        h('span', { class: 'pfeil' }, '›'));
+    }))),
   );
   return { titel: name, zurueck: 'training', knoten };
 }

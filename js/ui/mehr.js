@@ -18,9 +18,10 @@ const blur = () => { if (document.activeElement && document.activeElement.blur) 
 // ---------- Menü ----------
 
 function menue() {
-  const punkt = (ziel, name, text) => h('a', { href: `#mehr/${ziel}` }, h('span', { class: 'wachs' }, h('b', null, name), h('div', { class: 'klein' }, text)), h('span', { class: 'pfeil' }, '›'));
+  const punkt = (ziel, name, text) => h('a', { href: ziel.startsWith('#') ? ziel : `#mehr/${ziel}` }, h('span', { class: 'wachs' }, h('b', null, name), h('div', { class: 'klein' }, text)), h('span', { class: 'pfeil' }, '›'));
   return { titel: 'Mehr', knoten: h('div', null,
     karte(null, h('div', { class: 'liste' },
+      punkt('#rezepte', 'Rezepte', 'Frühstück, Mittagessen, Abendessen, Snacks mit Mengen und Nährwerten'),
       punkt('checkin', 'Wochen-Check-in', 'Wochenwerte ansehen und für Claude kopieren'),
       punkt('import', 'Von Claude importieren', 'Datenblock „FITNESS-IMPORT v1“ einfügen'),
       punkt('gesundheit', 'Gesundheit', 'Blutwerte und Supplements'),
@@ -383,6 +384,7 @@ function exportFuerClaude(tageZahl) {
     trainings: st.trainings.filter((t) => t.datum >= ab).sort((a, b) => (a.datum < b.datum ? -1 : 1)).map(({ id, ...rest }) => rest),
     messungen: st.messungen.map(({ id, ...rest }) => rest),
     blutwerte: st.blutwerte.map(({ id, ...rest }) => rest),
+    rezepte: (st.rezepte || []).map(({ id, ...rest }) => rest),
   };
   return `FITNESS-EXPORT v1 (aus der Fitness-App, ${de(d)})\n${JSON.stringify(daten)}`;
 }

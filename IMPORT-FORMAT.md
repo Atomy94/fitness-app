@@ -27,7 +27,7 @@ Der Block darf in Code-Zäunen (```) stehen und Leerzeilen davor haben.
 
 ## Allgemeine Regeln
 
-1. **Pflicht sind nur `typ` und `datum`** (bei `ziel`: `gueltig_ab`, `schluessel`, `wert`; bei `training`: `einheit`; bei `cardio`: `art`; bei `blutwert`: `name`). Alles andere ist optional.
+1. **Pflicht sind nur `typ` und `datum`** (bei `ziel`: `gueltig_ab`, `schluessel`, `wert`; bei `training`: `einheit`; bei `cardio`: `art`; bei `blutwert`: `name`; bei `rezept`: `name`, kein Datum). Alles andere ist optional.
 2. **Nur vorhandene Felder werden übernommen.** Fehlende Felder lassen vorhandene Werte unverändert.
 3. **`null` bedeutet „nicht ändern“.** Ein Wert lässt sich per Import nicht löschen (das geht in der App).
 4. **Datum** immer als `JJJJ-MM-TT`. Ein Datum, das es nicht gibt, ist ein Fehler.
@@ -123,6 +123,24 @@ Ein unbekannter Schlüssel ist ein Fehler (die Meldung listet alle erlaubten Sch
 
 `name` (Pflicht), `wert` (Zahl), `wert_text` (Text, z. B. „<5“), `einheit`, `norm_min`, `norm_max`.
 Ein Datensatz je Datum und Name. Liegt `wert` außerhalb von `norm_min`/`norm_max`, markiert die App ihn.
+
+### `rezept` – Rezept (ab App-Version 1.1, **ohne `datum`**)
+
+```
+{ "typ": "rezept", "name": "Linsensuppe", "kategorie": "Mittagessen", "bezug": "100g", "kcal": 85, "eiweiss_g": 5.2, "kh_g": 9.1, "fett_g": 2.4, "zutaten": [ { "name": "Rote Linsen", "menge": "300 g" }, { "name": "Kokosmilch", "menge": "400 ml" } ], "notiz": "Topf ca. 2.300 g" }
+```
+
+| Feld | Typ | Bedeutung |
+|---|---|---|
+| `name` | Text, Pflicht | Schlüssel des Rezepts (Groß-/Kleinschreibung egal) |
+| `kategorie` | Text | `Frühstück`, `Mittagessen`, `Abendessen` oder `Snacks` (anderes ist ein Fehler) |
+| `bezug` | Text | `"portion"` (Standard) oder `"100g"` – worauf sich die Nährwerte beziehen |
+| `portion` | Text | Beschreibung der Portion, z. B. „1 Schale“, „350 g“ |
+| `zutaten` | Liste | je Zutat `name` (Pflicht) und `menge` (Text wie „60 g“, „3 Stück“; eine Zahl wird als Gramm gelesen). Ersetzt die vorhandene Zutatenliste komplett. |
+| `kcal`, `eiweiss_g`, `kh_g`, `fett_g`, `ges_fett_g`, `zucker_g`, `ballaststoffe_g`, `salz_g` | Zahl | Nährwerte |
+| `notiz` | Text | |
+
+Gleicher Name: Das vorhandene Rezept wird ergänzt bzw. überschrieben (nur die gelieferten Felder).
 
 ## Nicht per Import änderbar
 
