@@ -87,7 +87,7 @@ Die Eiweißwerte bis 13.11.2026 sind als „Werte ungenau“ markiert.
 
 - **Heute:** Gewicht, Schritte, Schlaf, Stress, Kreatin eintragen. Jede Eingabe wird sofort gespeichert.
 - **Yazio-Werte:** Schicke Claude abends den Yazio-Screenshot. Claude antwortet mit einem Block, der mit `FITNESS-IMPORT v1` beginnt. Kopiere ihn, öffne **Mehr → Von Claude importieren**, füge ihn ein, tippe **Prüfen** und dann **Übernehmen**.
-- **Training:** Einheit starten, jeden Satz mit ✓ bestätigen. Oben kannst du die Einheit **anhalten** und **beenden**. Unter „Steigerung je Übung“ siehst du Gewicht und Wiederholungen im Vergleich zur letzten Einheit.
+- **Training:** Einheit starten, jeden Satz mit ✓ bestätigen. Oben kannst du die Einheit **anhalten** und **beenden**. Nach jedem ✓ läuft die Pause, die für diese Übung im Plan festgelegt ist (änderbar unter Mehr → Trainingsplan, Feld „Pause“). Unter „Steigerung je Übung“ siehst du Gewicht und Wiederholungen im Vergleich zur letzten Einheit.
 - **Rezepte:** **Mehr → Rezepte**, sortiert nach Frühstück, Mittagessen, Abendessen und Snacks, mit Mengen und Nährwerten. Neue Rezepte kannst du selbst anlegen oder von Claude als Import-Block bekommen.
 - **Sonntags:** **Mehr → Wochen-Check-in** → **Für Claude kopieren** und im Chat einfügen.
 

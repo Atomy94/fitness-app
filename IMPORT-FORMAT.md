@@ -27,7 +27,7 @@ Der Block darf in Code-Zäunen (```) stehen und Leerzeilen davor haben.
 
 ## Allgemeine Regeln
 
-1. **Pflicht sind nur `typ` und `datum`** (bei `ziel`: `gueltig_ab`, `schluessel`, `wert`; bei `training`: `einheit`; bei `cardio`: `art`; bei `blutwert`: `name`; bei `rezept`: `name`, kein Datum). Alles andere ist optional.
+1. **Pflicht sind nur `typ` und `datum`** (bei `ziel`: `gueltig_ab`, `schluessel`, `wert`; bei `training`: `einheit`; bei `cardio`: `art`; bei `blutwert`: `name`; bei `rezept` und `einheit`: `name`, kein Datum). Alles andere ist optional.
 2. **Nur vorhandene Felder werden übernommen.** Fehlende Felder lassen vorhandene Werte unverändert.
 3. **`null` bedeutet „nicht ändern“.** Ein Wert lässt sich per Import nicht löschen (das geht in der App).
 4. **Datum** immer als `JJJJ-MM-TT`. Ein Datum, das es nicht gibt, ist ein Fehler.
@@ -142,9 +142,29 @@ Ein Datensatz je Datum und Name. Liegt `wert` außerhalb von `norm_min`/`norm_ma
 
 Gleicher Name: Das vorhandene Rezept wird ergänzt bzw. überschrieben (nur die gelieferten Felder).
 
+### `einheit` – Einheit des Trainingsplans (ab App-Version 1.3, **ohne `datum`**)
+
+```
+{ "typ": "einheit", "name": "Kraft A", "uebungen": [ { "name": "Liegestütze", "saetze": 3, "wdh": "8-12", "kg": 0, "pause_sek": 60, "notiz": "2 Wdh. Reserve" }, { "name": "Seitstütz", "saetze": 2, "sek": 40, "pause_sek": 30 } ] }
+```
+
+| Feld | Typ | Bedeutung |
+|---|---|---|
+| `name` | Text, Pflicht | Name der Einheit, z. B. „Kraft A“. Gibt es sie noch nicht, wird sie angelegt. |
+| `uebungen` | Liste, Pflicht, mindestens 1 | **ersetzt die komplette Übungsliste** der Einheit; die Reihenfolge zählt (Minimalversion: nur die ersten Übungen) |
+| `uebungen[].name` | Text, Pflicht | |
+| `uebungen[].saetze` | ganze Zahl 1–20 | Standard 3 |
+| `uebungen[].wdh` | Zahl oder Text | z. B. `10` oder `"8-12"`; aus dem Bereich leitet die App den Steigerungs-Hinweis ab |
+| `uebungen[].kg` | Zahl | Startgewicht (Gesamtgewicht), 0 oder weglassen = Körpergewicht |
+| `uebungen[].sek` | ganze Zahl | Haltezeit statt Wiederholungen |
+| `uebungen[].pause_sek` | ganze Zahl 0–600 | vorgeschriebene Pause nach jedem Satz; fehlt sie, gilt die Standard-Pause der App |
+| `uebungen[].notiz` | Text | Hinweis zu Tempo, Technik, Supersatz |
+
+Bereits gespeicherte Trainings bleiben unverändert. Die Vorschau zeigt die alte und die neue Übungsliste.
+
 ## Nicht per Import änderbar
 
-Trainingsplan, Wochenplan und Zeiträume der Minimalversion werden in der App eingestellt (Mehr → Trainingsplan bzw. Einstellungen).
+Der Wochenplan (welcher Tag welche Einheit) und die Zeiträume der Minimalversion werden in der App eingestellt (Mehr → Trainingsplan bzw. Einstellungen).
 
 ## Regeln für Erweiterungen (Kompatibilität)
 

@@ -41,6 +41,9 @@ function bereich(wdhText) {
   return m ? { min: Number(m[1]), max: Number(m[2] || m[1]) } : null;
 }
 
+/** Vorgeschriebene Pause nach jedem Satz dieser Übung (Sekunden). */
+const pauseVon = (u) => (typeof u.pause_sek === 'number' ? u.pause_sek : S.state.einstellungen.pauseSek);
+
 function zielText(u) {
   const menge = u.sek ? `${u.sek} Sek.` : u.wdh || '';
   return `${u.saetze} × ${menge}${u.kg ? ` · ${fmt(u.kg, 1)} kg${u.kg_text ? ` (${u.kg_text})` : ''}` : ''}`;
@@ -97,7 +100,7 @@ function uebersicht() {
       einheiten.map((n) => h('details', null, h('summary', null, n),
         h('table', { class: 'tabelle' }, h('tbody', null, e.plan.einheiten[n].map((u) => h('tr', null,
           h('td', null, u.name, u.notiz ? h('div', { class: 'klein' }, u.notiz) : null),
-          h('td', { class: 'r', style: 'white-space:nowrap' }, zielText(u)),
+          h('td', { class: 'r', style: 'white-space:nowrap' }, zielText(u), h('div', { class: 'klein' }, `Pause ${pauseVon(u)} Sek.`)),
         )))),
       )),
       e.plan.progression ? h('p', { class: 'klein abstand' }, `Steigerung: ${e.plan.progression}`) : null,
@@ -143,7 +146,7 @@ function neuerEntwurf(einheit, datum) {
       return {
         name: u.name, zeit, planNotiz: u.notiz || '', ziel: zielText(u),
         letzte: l ? `Letztes Mal (${deKurz(l.datum)}): ${satzText(l.uebung.saetze)}${l.uebung.notiz ? ` – ${l.uebung.notiz}` : ''}` : 'Noch nie eingetragen – Startwerte aus dem Plan.',
-        hinweis, notiz: '',
+        hinweis, notiz: '', pauseSek: pauseVon(u),
         saetze: Array.from({ length: u.saetze || 3 }, (_, i) => {
           const ls = l ? l.uebung.saetze[Math.min(i, l.uebung.saetze.length - 1)] : null;
           return zeit
@@ -247,6 +250,9 @@ function startScreen(einheit, datumArg) {
   // Timer: oben die ganze Einheit (anhalten/fortsetzen/beenden), darunter die Satzpause.
   const zeitEl = h('span', { class: 'gross zeit' }, '0:00');
   const pauseEl = h('span', { class: 'gross pause' }, '');
+  const pauseTitel = h('div', { class: 'klein' }, 'Satzpause');
+  const standardPause = () => S.state.einstellungen.pauseSek;
+  const startePause = (sek) => { en.pauseSoll = sek; en.pauseBis = Date.now() + sek * 1000; en.pauseGemeldet = false; };
   const haltKnopf = h('button', { type: 'button', class: 'knopf schmal', onclick: () => {
     if (en.angehaltenSeit) {
       en.angehaltenMs = (en.angehaltenMs || 0) + (Date.now() - en.angehaltenSeit);
@@ -260,14 +266,14 @@ function startScreen(einheit, datumArg) {
   const timer = h('div', { class: 'timer', 'data-laeuft': '1' },
     h('div', { class: 'zeile' },
       h('div', { class: 'wachs' }, h('div', { class: 'klein' }, `Einheit (max. ${en.maxMin} Min.)`), zeitEl),
-      h('div', { class: 'rechtsb' }, h('div', { class: 'klein' }, 'Satzpause'), pauseEl),
+      h('div', { class: 'rechtsb' }, pauseTitel, pauseEl),
     ),
     h('div', { class: 'knopfreihe', style: 'margin-top:6px' },
       haltKnopf,
       h('button', { type: 'button', class: 'knopf schmal', onclick: abschliessen }, 'Beenden'),
     ),
     h('div', { class: 'knopfreihe', style: 'margin-top:6px' },
-      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.angehaltenSeit) return; tonBereit(); en.pauseBis = Date.now() + S.state.einstellungen.pauseSek * 1000; en.pauseGemeldet = false; sichern(); tick(); } }, `Pause ${S.state.einstellungen.pauseSek} s`),
+      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.angehaltenSeit) return; tonBereit(); startePause(en.pauseSoll || standardPause()); sichern(); tick(); } }, 'Pause neu'),
       h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.pauseBis) { en.pauseBis += 15000; en.pauseGemeldet = false; sichern(); tick(); } } }, '+15 s'),
       h('button', { type: 'button', class: 'knopf schmal', onclick: () => { en.pauseBis = null; en.pauseGemeldet = true; sichern(); tick(); } }, 'Pause aus'),
     ),
@@ -285,10 +291,12 @@ function startScreen(einheit, datumArg) {
     if (en.pauseBis) {
       const rest = en.pauseBis - jetzt;
       pauseEl.textContent = rest > 0 ? mmss(rest) : 'Weiter!';
+      pauseTitel.textContent = `Satzpause · Soll ${en.pauseSoll || standardPause()} Sek.`;
       pauseEl.classList.toggle('fertig', rest <= 0);
       if (rest <= 0 && !en.pauseGemeldet) { en.pauseGemeldet = true; sichern(); ton(2); }
     } else {
       pauseEl.textContent = '–';
+      pauseTitel.textContent = 'Satzpause';
       pauseEl.classList.remove('fertig');
     }
   }
@@ -311,7 +319,7 @@ function startScreen(einheit, datumArg) {
           h('button', { type: 'button', class: 'ok', 'aria-label': `Satz ${i + 1} bestätigen`, onclick: () => {
             x.fertig = !x.fertig;
             zeile.classList.toggle('fertig', x.fertig);
-            if (x.fertig && live && !en.angehaltenSeit) { tonBereit(); en.pauseBis = Date.now() + S.state.einstellungen.pauseSek * 1000; en.pauseGemeldet = false; tick(); }
+            if (x.fertig && live && !en.angehaltenSeit) { tonBereit(); startePause(u.pauseSek ?? standardPause()); tick(); }
             sichern();
           } }, '✓'),
         );
@@ -322,6 +330,7 @@ function startScreen(einheit, datumArg) {
     return h('section', { class: 'karte' },
       h('h2', null, u.name),
       h('p', { class: 'fett' }, `Ziel heute: ${u.ziel}`),
+      h('p', null, h('span', { class: 'marke neutral' }, `Pause nach jedem Satz: ${u.pauseSek ?? standardPause()} Sek.`)),
       u.planNotiz ? h('p', { class: 'klein' }, u.planNotiz) : null,
       h('p', { class: 'klein' }, u.letzte),
       u.hinweis ? h('p', { class: 'klein', style: 'color:var(--gruen);font-weight:600' }, u.hinweis) : null,
@@ -345,7 +354,7 @@ function startScreen(einheit, datumArg) {
     en.gekuerzt ? h('div', { class: 'hinweis ruhig' }, `Minimalversion: ${en.maxMin} Min., die ersten ${en.uebungen.length} Übungen.`) : null,
     en.uebungen.map(uebungKarte),
     karte('Abschluss',
-      live ? h('label', { class: 'feld' }, h('span', null, 'Pausentimer'), pauseWahl) : zahlFeld({ label: 'Dauer', einheit: 'Min.', wert: en.dauer_min, min: 0, max: 600, onChange: (v) => { en.dauer_min = v; sichern(); } }),
+      live ? h('label', { class: 'feld' }, h('span', null, 'Standard-Pause (für Übungen ohne eigene Vorgabe)'), pauseWahl) : zahlFeld({ label: 'Dauer', einheit: 'Min.', wert: en.dauer_min, min: 0, max: 600, onChange: (v) => { en.dauer_min = v; sichern(); } }),
       h('label', { class: 'zeile', style: 'min-height:48px' }, verkuerztBox, h('span', { class: 'wachs' }, 'Verkürzt trainiert (zählt gelb)')),
       textFeld({ label: 'Notiz zur Einheit', wert: en.notiz, mehrzeilig: true, onChange: (v) => { en.notiz = v; sichern(); } }),
       h('button', { type: 'button', class: 'knopf haupt breit', onclick: abschliessen }, 'Training beenden und speichern'),

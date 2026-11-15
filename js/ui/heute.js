@@ -1,7 +1,7 @@
 // Bildschirm "Heute": Ringe, Schritte, Plan, die drei Bereiche und die Schnelleingabe.
 
 import { S, heuteIso, neu, setzeState, wechsleModus, speichern, meldung } from '../store.js';
-import { h, karte, ring, balken, punkt, STATUS_TEXT } from './dom.js';
+import { h, karte, ring, punkt, STATUS_TEXT } from './dom.js';
 import { tagFormular, einheitText } from './tag.js';
 import { tagBewertung } from '../core/bewertung.js';
 import { ausHealthData } from '../core/erstimport.js';
@@ -104,22 +104,18 @@ function kopfTeil(d) {
   }
 
   const k = b.ziele.kcal;
+  const sz = b.ziele.schritte;
   teile.push(h('section', { class: 'karte' },
     h('div', { class: 'ringe' },
       ring({ wert: t.kcal ?? null, ziel: k.ziel, status: b.kcal, titel: 'Kalorien', einheit: 'kcal' }),
       ring({ wert: t.eiweiss_g ?? null, ziel: b.ziele.eiweiss.ziel, status: b.eiweiss, titel: 'Eiweiß', einheit: 'g' }),
+      ring({ wert: t.schritte ?? null, ziel: sz.ziel, status: b.schritte, titel: 'Schritte', einheit: '' }),
     ),
     h('p', { class: 'klein abstand', style: 'text-align:center' },
       t.kcal === undefined ? 'Werte kommen aus Yazio (Claude-Import). ' : `Grüner Bereich: ${fmt(k.min)}–${fmt(k.max)} kcal${k.art === 'fussball' ? ' (Fußballtag)' : ''}. `,
       t.ungenau ? 'Eiweiß ungenau. ' : null,
       h('a', { href: `#tag/${d}` }, 'Nachtragen'),
     ),
-  ));
-
-  const sz = b.ziele.schritte;
-  teile.push(h('section', { class: 'karte' },
-    h('div', { class: 'zeile' }, h('span', { class: 'wachs fett' }, 'Schritte'), h('span', { class: `wert-s s-${b.schritte}` }, fmt(t.schritte)), h('span', { class: 'klein' }, `von ${fmt(sz.ziel)}`)),
-    balken(t.schritte, sz.ziel, b.schritte),
   ));
 
   const bereich = (buchstabe, name, status, stern) => h('a', { class: `bereich s-${status}`, href: `#tag/${d}` }, h('div', { class: 'zeile', style: 'justify-content:center;gap:6px' }, punkt(status, buchstabe, stern), h('b', null, name)), STATUS_TEXT[status]);

@@ -119,12 +119,14 @@ details > summary { cursor: pointer; min-height: 44px; display: flex; align-item
 .s-leer.wert-s, .s-offen.wert-s { color: var(--text2); }
 
 /* Heute */
-.ringe { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: center; }
+.ringe { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; text-align: center; }
 .ring svg { width: 100%; max-width: 150px; height: auto; }
 .ring .bahn { stroke: var(--grau-bg); }
 .ring .bogen { stroke: var(--s, var(--grau)); transition: stroke-dashoffset .3s; }
-.ring .zahl { font-size: 24px; font-weight: 700; fill: var(--text); }
-.ring .unter { font-size: 11px; fill: var(--text2); }
+/* Schrift im Ring ist größer gewählt, weil drei Ringe nebeneinander das Bild verkleinern. */
+.ring .zahl { font-size: 27px; font-weight: 700; fill: var(--text); }
+.ring .unter { font-size: 13px; fill: var(--text2); }
+.ring > .fett { font-size: 14px; }
 .balken { height: 14px; border-radius: 7px; background: var(--grau-bg); overflow: hidden; margin: 6px 0; }
 .balken > i { display: block; height: 100%; background: var(--s, var(--grau)); border-radius: 7px; }
 .bereiche { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -201,6 +203,8 @@ body { overflow-x: hidden; }
 .satz .ok { min-height: 48px; border-radius: 10px; border: 1px solid var(--rand); background: var(--feld); font-size: 20px; font-weight: 700; color: var(--text2); }
 .satz.fertig .ok { background: var(--gruen); border-color: var(--gruen); color: #fff; }
 .satz.fertig input { background: var(--gruen-bg); }
+.planfelder { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin-top: 6px; }
+.planfelder input { padding: 10px 4px; text-align: center; }
 .satzkopf { font-size: 11px; color: var(--text2); text-align: center; }
 
 .vorschau-posten { border-top: 1px solid var(--rand); padding: 8px 0; }

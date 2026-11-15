@@ -317,11 +317,12 @@ function planScreen() {
       h('button', { type: 'button', class: 'knopf schmal', 'aria-label': 'Nach oben', disabled: i === 0, onclick: () => { [liste[i - 1], liste[i]] = [liste[i], liste[i - 1]]; sichere(); } }, '↑'),
       h('button', { type: 'button', class: 'knopf schmal gefahr', 'aria-label': 'Übung löschen', onclick: () => { if (confirm(`„${u.name}“ aus ${name} entfernen?`)) { liste.splice(i, 1); sichere(); } } }, '✕'),
     ),
-    h('div', { style: 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px' },
+    h('div', { class: 'planfelder' },
       zahlFeld({ label: 'Sätze', wert: u.saetze, ganz: true, min: 1, max: 20, onChange: (v) => { if (v) { u.saetze = v; sichere(false); } } }),
       textFeld({ label: 'Wdh.', wert: u.wdh, platzhalter: '10-12', onChange: (v) => { u.wdh = v; sichere(false); } }),
       zahlFeld({ label: 'kg', wert: u.kg, min: 0, max: 1000, onChange: (v) => { u.kg = v; delete u.kg_text; sichere(false); } }),
       zahlFeld({ label: 'Sek.', wert: u.sek ?? null, ganz: true, min: 0, max: 3600, onChange: (v) => { if (v) u.sek = v; else delete u.sek; sichere(false); } }),
+      zahlFeld({ label: 'Pause', wert: u.pause_sek ?? null, platzhalter: String(e.pauseSek), ganz: true, min: 0, max: 600, onChange: (v) => { if (v === null) delete u.pause_sek; else u.pause_sek = v; sichere(false); } }),
     ),
     textFeld({ platzhalter: 'Hinweis (Tempo, Technik …)', wert: u.notiz, onChange: (v) => { if (v) u.notiz = v; else delete u.notiz; sichere(false); } }),
   );
@@ -339,7 +340,7 @@ function planScreen() {
     karte('Zeiten',
       h('div', { class: 'raster2' },
         zahlFeld({ label: 'Einheit höchstens', einheit: 'Min.', wert: plan.maxMinuten, ganz: true, min: 5, max: 240, onChange: (v) => { if (v) { plan.maxMinuten = v; sichere(false); } } }),
-        zahlFeld({ label: 'Pausentimer', einheit: 'Sek.', wert: e.pauseSek, ganz: true, min: 5, max: 600, onChange: (v) => { if (v) { e.pauseSek = v; sichere(false); } } }),
+        zahlFeld({ label: 'Standard-Pause', einheit: 'Sek.', wert: e.pauseSek, ganz: true, min: 5, max: 600, onChange: (v) => { if (v) { e.pauseSek = v; sichere(false); } } }),
       ),
     ),
   ) };

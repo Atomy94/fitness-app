@@ -145,5 +145,6 @@ test('Anleitung für Claude: nennt alle Typen, Felder und Zielschlüssel; das Be
   const beispiel = text.split('```\n')[1].split('\n```')[0];
   const r = leseImport(beispiel);
   assert.equal(r.ok, true, r.fehler.join('\n'));
-  assert.equal(r.eintraege.length, 7);
+  assert.equal(r.eintraege.length, 8);
+  for (const feld of ['saetze', 'wdh', 'pause_sek', 'sek']) assert.ok(text.includes(feld), `Planfeld ${feld} fehlt`);
 });

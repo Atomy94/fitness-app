@@ -28,7 +28,7 @@ export function standardWochenplan() {
 
 /** Allgemeiner Beispielplan – wird beim Import durch den eigenen Plan ersetzt. */
 export function standardEinheiten() {
-  const u = (name, saetze, wdh, kg = null, extra = {}) => ({ name, saetze, wdh, kg, ...extra });
+  const u = (name, saetze, wdh, kg = null, extra = {}) => ({ name, saetze, wdh, kg, pause_sek: kg ? 75 : 45, ...extra });
   return {
     'Kraft A': [u('Liegestütze', 3, '10'), u('Einarmiges Rudern', 3, '10-12', 14), u('Schulterdrücken', 3, '8-12', 12), u('Glute Bridge', 3, '12-15', 10), u('Dead Bug', 3, '10')],
     'Kraft B': [u('Goblet Squat', 3, '10-12', 16), u('Ausfallschritt rückwärts', 2, '10', 8), u('Rudern vorgebeugt', 3, '8-12', 20), u('Kreuzheben gestreckt', 3, '12', 20), u('Seitstütz', 2, '', null, { sek: 40 })],

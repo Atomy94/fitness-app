@@ -59,7 +59,7 @@ export function ring({ wert, ziel, status, titel, einheit, stellen = 0 }) {
       s('circle', { class: 'bahn', cx: 65, cy: 65, r, fill: 'none', 'stroke-width': 12 }),
       s('circle', { class: 'bogen', cx: 65, cy: 65, r, fill: 'none', 'stroke-width': 12, 'stroke-linecap': 'round', 'stroke-dasharray': umfang, 'stroke-dashoffset': umfang * (1 - anteil), transform: 'rotate(-90 65 65)' }),
       s('text', { class: 'zahl', x: 65, y: 66, 'text-anchor': 'middle' }, fmt(wert, stellen)),
-      s('text', { class: 'unter', x: 65, y: 84, 'text-anchor': 'middle' }, `von ${fmt(ziel)} ${einheit}`),
+      s('text', { class: 'unter', x: 65, y: 85, 'text-anchor': 'middle' }, `von ${fmt(ziel)} ${einheit}`.trim()),
     ),
     h('div', { class: 'fett' }, titel),
   );

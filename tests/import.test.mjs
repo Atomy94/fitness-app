@@ -192,3 +192,45 @@ test('fehlerhaft: ein einziger falscher Eintrag verwirft den ganzen Block', () =
   assert.equal(r.eintraege.length, 0);
   assert.match(r.fehler[0], /Eintrag 2/);
 });
+
+test('Plan-Einheit: ersetzt die Übungsliste, mit Pause je Übung, Vorschau zeigt alt → neu', () => {
+  const s = stand();
+  const r = leseImport(block([{ typ: 'einheit', name: 'Kraft A', uebungen: [
+    { name: 'Liegestütze', saetze: 3, wdh: '8-12', kg: 0, pause_sek: 15, notiz: 'Supersatz 1a' },
+    { name: 'Einarmiges Rudern', saetze: 3, wdh: 10, kg: '16,5', pause_sek: 75 },
+    { name: 'Seitstütz', sek: 40 },
+  ] }]));
+  assert.equal(r.ok, true, r.fehler.join(' | '));
+  let e = verarbeite(s, r.eintraege);
+  assert.equal(e.posten[0].art, 'ersetzt');
+  assert.match(e.posten[0].felder[0].alt, /Schulterdrücken/);
+  assert.ok(e.posten[0].felder[0].neu.includes('Einarmiges Rudern (3 × 10, 16,5 kg, Pause 75 Sek.)'));
+  assert.deepEqual(e.state.einstellungen.plan.einheiten['Kraft A'], [
+    { name: 'Liegestütze', saetze: 3, wdh: '8-12', kg: 0, pause_sek: 15, notiz: 'Supersatz 1a' },
+    { name: 'Einarmiges Rudern', saetze: 3, wdh: '10', kg: 16.5, pause_sek: 75 },
+    { name: 'Seitstütz', saetze: 3, wdh: '', kg: null, sek: 40 },
+  ]);
+  assert.equal(s.einstellungen.plan.einheiten['Kraft A'].length, 5); // Original unberührt
+  assert.ok(e.state.einstellungen.plan.einheiten['Kraft B']); // andere Einheiten bleiben
+  // gleicher Inhalt noch einmal: unverändert
+  assert.equal(verarbeite(e.state, r.eintraege).posten[0].art, 'gleich');
+  // neue Einheit anlegen
+  e = verarbeite(s, leseImport(block([{ typ: 'einheit', name: 'Kraft D', uebungen: [{ name: 'Kniebeuge', wdh: 15 }] }])).eintraege);
+  assert.equal(e.posten[0].art, 'neu');
+  assert.equal(e.state.einstellungen.plan.einheiten['Kraft D'][0].saetze, 3);
+});
+
+for (const [name, eintrag, muster] of [
+  ['ohne Name', { typ: 'einheit', uebungen: [{ name: 'X' }] }, /Pflichtfeld "name"/],
+  ['ohne Übungen', { typ: 'einheit', name: 'Kraft A' }, /Pflichtfeld "uebungen"/],
+  ['leere Übungsliste', { typ: 'einheit', name: 'Kraft A', uebungen: [] }, /mindestens einer Übung/],
+  ['Übung ohne Name', { typ: 'einheit', name: 'Kraft A', uebungen: [{ saetze: 3 }] }, /braucht einen "name"/],
+  ['Pause zu lang', { typ: 'einheit', name: 'Kraft A', uebungen: [{ name: 'X', pause_sek: 5000 }] }, /außerhalb/],
+  ['Sätze als Text', { typ: 'einheit', name: 'Kraft A', uebungen: [{ name: 'X', saetze: 'drei' }] }, /Zahl/],
+]) {
+  test(`fehlerhaft: Plan-Einheit ${name} → abgelehnt`, () => {
+    const r = leseImport(block([eintrag]));
+    assert.equal(r.ok, false);
+    assert.match(r.fehler.join(' | '), muster);
+  });
+}

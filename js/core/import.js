@@ -35,6 +35,8 @@ export const FELDER = {
     kcal: Z(0, 15000), eiweiss_g: Z(0, 1000), kh_g: Z(0, 2000), fett_g: Z(0, 1000),
     ges_fett_g: Z(0, 500), zucker_g: Z(0, 1000), ballaststoffe_g: Z(0, 500), salz_g: Z(0, 100),
   },
+  // Einheit des Trainingsplans (z. B. "Kraft A"): ersetzt die Übungsliste dieser Einheit komplett.
+  einheit: { name: ['text*'], uebungen: ['planuebungen*'] },
   blutwert: { name: ['text*'], wert: Z(-1e9, 1e9), wert_text: ['text'], einheit: ['text'], norm_min: Z(-1e9, 1e9), norm_max: Z(-1e9, 1e9) },
 };
 
@@ -52,8 +54,8 @@ export const FELD_NAMEN = {
   kategorie: 'Kategorie', bezug: 'Nährwerte gelten', portion: 'Portion', zutaten: 'Zutaten',
 };
 
-const TYP_NAMEN = { tag: 'Tag', training: 'Training', cardio: 'Cardio', messung: 'Messung', ziel: 'Ziel', blutwert: 'Blutwert', rezept: 'Rezept' };
-const OHNE_DATUM = ['ziel', 'rezept'];
+const TYP_NAMEN = { tag: 'Tag', training: 'Training', cardio: 'Cardio', messung: 'Messung', ziel: 'Ziel', blutwert: 'Blutwert', rezept: 'Rezept', einheit: 'Plan-Einheit' };
+const OHNE_DATUM = ['ziel', 'rezept', 'einheit'];
 
 function pruefeWert(spec, wert, wo, fehler) {
   const typ = spec[0].replace('*', '');
@@ -77,6 +79,26 @@ function pruefeWert(spec, wert, wo, fehler) {
     return wert;
   }
   if (typ === 'uebungen') return pruefeUebungen(wert, wo, fehler);
+  if (typ === 'planuebungen') {
+    if (!Array.isArray(wert) || !wert.length) { fehler.push(`${wo}: muss eine Liste mit mindestens einer Übung sein.`); return undefined; }
+    const aus = [];
+    wert.forEach((u, i) => {
+      const w = `${wo}[${i + 1}]`;
+      if (!u || typeof u !== 'object' || typeof u.name !== 'string' || !u.name.trim()) { fehler.push(`${w}: jede Übung braucht einen "name".`); return; }
+      const ueb = { name: u.name.trim(), saetze: 3, wdh: '', kg: null };
+      const zahl = (feld, spec) => {
+        if (u[feld] === undefined || u[feld] === null) return;
+        const v = pruefeWert(spec, u[feld], `${w}.${feld}`, fehler);
+        if (v !== undefined) ueb[feld] = v;
+      };
+      zahl('saetze', G(1, 20)); zahl('kg', Z(0, 1000)); zahl('sek', G(1, 3600)); zahl('pause_sek', G(0, 600));
+      if (typeof u.wdh === 'number' || typeof u.wdh === 'string') ueb.wdh = String(u.wdh).trim();
+      else if (u.wdh !== undefined && u.wdh !== null) fehler.push(`${w}.wdh: muss eine Zahl oder ein Text wie "8-12" sein.`);
+      if (typeof u.notiz === 'string' && u.notiz.trim()) ueb.notiz = u.notiz.trim();
+      aus.push(ueb);
+    });
+    return aus;
+  }
   if (typ === 'kategorie') {
     const k = KATEGORIEN.find((x) => x.toLowerCase() === String(wert).trim().toLowerCase());
     if (!k) { fehler.push(`${wo}: unbekannte Kategorie ${JSON.stringify(wert)}. Erlaubt: ${KATEGORIEN.join(', ')}.`); return undefined; }
@@ -288,6 +310,17 @@ export function verarbeite(stateAlt, eintraege, optionen = {}) {
       const diff = mische(r, e, Object.keys(FELDER.rezept).filter((f) => f !== 'name'));
       p.felder = diff.map((d) => (d.feld === 'zutaten' ? { feld: 'zutaten', alt: d.alt ? `${d.alt.length} Zutaten` : null, neu: d.neu.map((z) => `${z.menge} ${z.name}`.trim()).join(', ') } : d));
       p.art = !vorhanden ? 'neu' : p.felder.length ? 'aenderung' : 'gleich';
+    } else if (e.typ === 'einheit') {
+      p.titel = `Trainingsplan: Einheit „${e.name}“`;
+      const plan = state.einstellungen.plan;
+      const alt = plan.einheiten[e.name];
+      const kurz = (u) => `${u.name} (${u.saetze} × ${u.sek ? u.sek + ' Sek.' : u.wdh || '?'}${u.kg ? ', ' + fmt(u.kg, 1) + ' kg' : ''}${typeof u.pause_sek === 'number' ? ', Pause ' + u.pause_sek + ' Sek.' : ''})`;
+      if (alt && gleich(alt, e.uebungen)) p.art = 'gleich';
+      else {
+        p.art = alt ? 'ersetzt' : 'neu';
+        p.felder = [{ feld: 'uebungen', alt: alt ? alt.map((u) => u.name).join(', ') : null, neu: e.uebungen.map(kurz).join(' · ') }];
+        plan.einheiten[e.name] = e.uebungen;
+      }
     } else if (e.typ === 'blutwert') {
       p.titel = `Blutwert ${e.name}, ${de(e.datum)}`;
       let b = state.blutwerte.find((x) => x.datum === e.datum && x.name === e.name);

@@ -86,7 +86,7 @@ IndexedDB-Datenbank `fitness-app` (echte Daten) bzw. `fitness-app-demo` (Testdat
 | `messungen` | Liste, ein Eintrag je Datum+Quelle: `bauch_cm, koerperfett_pct, gewicht_kg, muskelmasse_kg, …, liegestuetze_max, kniebeugen_max, quelle, ungueltig, grund` |
 | `blutwerte` | Liste: `{ id, datum, name, wert, wert_text, einheit, norm_min, norm_max }` |
 | `ziele` | Liste: `{ id, schluessel, gueltig_ab, wert }` – Schlüssel siehe `ZIEL_INFO` / IMPORT-FORMAT.md |
-| `einstellungen` | `start, profil, phasen, minimal.zeitraeume[{von,bis}], minimalKraft, plan{maxMinuten, wochenplan{1..7}, wochenplanAlt[{bis, wochenplan}], einheiten{Name:[Übungen]}, progression}, zielpfad{von,bis}, pauseSek, supplements, letzteSicherung, eingerichtet, archiv` |
+| `einstellungen` | `start, profil, phasen, minimal.zeitraeume[{von,bis}], minimalKraft, plan{maxMinuten, wochenplan{1..7}, wochenplanAlt[{bis, wochenplan}], einheiten{Name:[{ name, saetze, wdh, kg, kg_text, sek, pause_sek, notiz }]}, progression}, zielpfad{von,bis}, pauseSek, supplements, letzteSicherung, eingerichtet, archiv` |
 | `checkins` | Objekt je Montag: `{ verdauung, besonderheiten }` |
 | `rezepte` | Liste: `{ id, name, kategorie (Frühstück/Mittagessen/Abendessen/Snacks), bezug:'portion'|'100g', portion, zutaten:[{ name, menge }], kcal, eiweiss_g, kh_g, fett_g, ges_fett_g, zucker_g, ballaststoffe_g, salz_g, notiz }`. Fehlt die Sammlung (Stand aus 1.0), baut `ergaenze()` sie aus `einstellungen.archiv`. |
 | `entwurf` | laufendes Training (nicht Teil der Sicherung): Übungen mit Sätzen, `startMs`, `angehaltenSeit`, `angehaltenMs` (angehaltene Zeit zählt nicht zur Dauer), `pauseBis` (Satzpause) |
@@ -118,7 +118,7 @@ Status: `gruen` geschafft · `gelb` knapp · `rot` verfehlt · `grau` trifft nic
 Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 
 - Textblock beginnt mit `FITNESS-IMPORT v1`, danach JSON `{ "eintraege": [ … ] }`.
-- Typen: `tag`, `training`, `cardio`, `messung`, `ziel`, `blutwert`, `rezept` (ohne Datum, Schlüssel ist der Name).
+- Typen: `tag`, `training`, `cardio`, `messung`, `ziel`, `blutwert`, `rezept` (ohne Datum, Schlüssel ist der Name), `einheit` (ohne Datum; ersetzt die Übungsliste einer Plan-Einheit oder legt eine neue an).
 - Pflicht nur `typ` und `datum` (plus Kennfelder: `einheit`, `art`, `name`, bei `ziel`: `gueltig_ab`, `schluessel`, `wert`).
 - Nur vorhandene Felder werden übernommen; `null` = nicht ändern.
 - Vorschau (neu / alt → neu) vor dem Speichern; gespeichert wird erst nach „Übernehmen“.
@@ -141,6 +141,7 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 
 ## Training durchführen und Steigerung
 
+- **Pause je Übung:** `pause_sek` im Plan ist die vorgeschriebene Pause nach jedem Satz. Nach ✓ startet der Timer mit genau diesem Wert und zeigt „Soll … Sek.“. Ohne Angabe gilt `einstellungen.pauseSek` (Standard-Pause). Einstellbar unter Mehr → Trainingsplan (Feld „Pause“) oder per Import (`einheit`).
 - Timer oben: **Anhalten/Fortsetzen** (ganze Einheit, Zeit steht) und **Beenden** (speichert bestätigte Sätze, fragt bei offenen Sätzen nach). Darunter die Satzpause, die nach jedem ✓ automatisch startet.
 - Jede gespeicherte Einheit hält je Übung alle Sätze mit Gewicht und Wiederholungen fest.
 - **„Steigerung je Übung“** (auf „Training“ und „Fortschritt“): letzter Stand je Übung, Veränderung zur vorherigen Einheit und seit dem ersten Eintrag. Detail je Übung: Bestwert, Diagramme (Gewicht, Wiederholungen, Gewicht × Wdh.), alle Einträge mit Veränderung.
@@ -159,4 +160,5 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 
 - iOS: Vibration gibt es in Safari nicht; der Timer-Ton funktioniert nur, solange die App im Vordergrund ist.
 - Eine gespeicherte Krafteinheit lässt sich nicht satzweise bearbeiten (löschen und neu eintragen oder per Import ersetzen).
-- Einheiten im Plan (Kraft A/B/C) können bearbeitet, aber nicht neu angelegt oder umbenannt werden.
+- Einheiten im Plan (Kraft A/B/C) können in der App bearbeitet, aber nur per Import (`einheit`) neu angelegt werden; umbenennen und löschen geht nicht.
+- „Heute“ zeigt drei Ringe: Kalorien, Eiweiß, Schritte (jeweils gegen das Tagesziel, Farbe = Status).
