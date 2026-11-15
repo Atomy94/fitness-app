@@ -7,7 +7,7 @@ import { einheitText } from './tag.js';
 import { minimalAktiv, planTag } from '../core/ziele.js';
 import { neueId, uebungsSchluessel, tagVon } from '../core/state.js';
 import { fmt } from '../core/zahl.js';
-import { uebungsVerlaeufe, vergleich } from '../core/kraft.js';
+import { uebungsVerlaeufe, vergleich, variante, zuletztSchwer } from '../core/kraft.js';
 import { WT_LANG, wochentag, de, deKurz, deMitTag, istDatum } from '../core/datum.js';
 
 const enc = encodeURIComponent;
@@ -94,12 +94,12 @@ function uebersicht() {
         wt === heuteWt ? h('span', { class: 'marke neutral' }, 'heute') : null,
       ))),
     ),
-    karte('Krafttraining starten', h('div', { class: 'knopfreihe' }, einheiten.map((n) => h('a', { class: 'knopf haupt', href: `#training/start/${enc(n)}` }, n)))),
+    karte('Krafttraining (erst Übersicht, dann Start)', h('div', { class: 'knopfreihe' }, einheiten.map((n) => h('a', { class: 'knopf haupt', href: `#training/start/${enc(n)}` }, n)))),
     karte('Cardio eintragen', h('div', { class: 'knopfreihe' }, CARDIO_ARTEN.slice(0, 3).map((a) => h('a', { class: 'knopf', href: `#training/cardio/${enc(a)}/${d}` }, a)))),
     karte('Einheiten im Plan',
       einheiten.map((n) => h('details', null, h('summary', null, n),
         h('table', { class: 'tabelle' }, h('tbody', null, e.plan.einheiten[n].map((u) => h('tr', null,
-          h('td', null, u.name, u.notiz ? h('div', { class: 'klein' }, u.notiz) : null),
+          h('td', null, u.name, u.notiz ? h('div', { class: 'klein' }, u.notiz) : null, u.schwer && u.schwer.name ? h('div', { class: 'klein' }, `↑ anspruchsvoller: ${u.schwer.name}`) : null),
           h('td', { class: 'r', style: 'white-space:nowrap' }, zielText(u), h('div', { class: 'klein' }, `Pause ${pauseVon(u)} Sek.`)),
         )))),
       )),
@@ -126,36 +126,95 @@ function listeScreen() {
 
 // ---------- Einheit durchführen ----------
 
-function neuerEntwurf(einheit, datum) {
+/** Übungen einer Einheit für ein Datum. In der Minimalversion nur die ersten und mit kürzerer Zeit. */
+function planListe(einheit, datum) {
   const e = S.state.einstellungen;
   const plan = e.plan.einheiten[einheit] || [];
   const p = planTag(e, datum);
-  const gekuerzt = minimalAktiv(e, datum) && p && p.typ === 'kraft';
-  const liste = gekuerzt ? plan.slice(0, e.minimalKraft.uebungen) : plan;
+  const gekuerzt = !!(minimalAktiv(e, datum) && p && p.typ === 'kraft');
+  return { liste: gekuerzt ? plan.slice(0, e.minimalKraft.uebungen) : plan, gekuerzt, maxMin: gekuerzt ? e.minimalKraft.minuten : e.plan.maxMinuten || 30 };
+}
+
+function letzteZeile(name, datum) {
+  const l = letzteUebung(name, datum);
+  return l ? `Letztes Mal (${deKurz(l.datum)}): ${satzText(l.uebung.saetze)}${l.uebung.notiz ? ` – ${l.uebung.notiz}` : ''}` : 'Noch nie eingetragen – Startwerte aus dem Plan.';
+}
+
+/** Eine Übung für das laufende Training: einfache oder anspruchsvollere Version, vorbelegt mit den letzten Werten. */
+function entwurfUebung(planUebung, datum, schwer) {
+  const u = variante(planUebung, schwer);
+  const l = letzteUebung(u.name, datum);
+  const b = bereich(u.wdh);
+  const zeit = !!u.sek;
+  let hinweis = '';
+  if (l && b && !zeit && l.uebung.saetze.every((x) => (x.wdh || 0) >= b.max)) {
+    hinweis = l.uebung.saetze.some((x) => x.kg > 0) ? 'Obere Grenze erreicht → heute 1–2 kg mehr versuchen.' : 'Obere Grenze erreicht → langsameres Tempo oder schwerere Variante.';
+  }
   return {
-    einheit, datum, startMs: Date.now(), pauseBis: null, pauseGemeldet: true, zeitGemeldet: false,
-    maxMin: gekuerzt ? e.minimalKraft.minuten : e.plan.maxMinuten || 30, gekuerzt, verkuerzt: false, notiz: '', dauer_min: null,
-    uebungen: liste.map((u) => {
-      const l = letzteUebung(u.name, datum);
-      const b = bereich(u.wdh);
-      const zeit = !!u.sek;
-      let hinweis = '';
-      if (l && b && !zeit && l.uebung.saetze.every((x) => (x.wdh || 0) >= b.max)) {
-        hinweis = l.uebung.saetze.some((x) => x.kg > 0) ? 'Obere Grenze erreicht → heute 1–2 kg mehr versuchen.' : 'Obere Grenze erreicht → langsameres Tempo oder schwerere Variante.';
-      }
-      return {
-        name: u.name, zeit, planNotiz: u.notiz || '', ziel: zielText(u),
-        letzte: l ? `Letztes Mal (${deKurz(l.datum)}): ${satzText(l.uebung.saetze)}${l.uebung.notiz ? ` – ${l.uebung.notiz}` : ''}` : 'Noch nie eingetragen – Startwerte aus dem Plan.',
-        hinweis, notiz: '', pauseSek: pauseVon(u),
-        saetze: Array.from({ length: u.saetze || 3 }, (_, i) => {
-          const ls = l ? l.uebung.saetze[Math.min(i, l.uebung.saetze.length - 1)] : null;
-          return zeit
-            ? { sek: (ls && ls.sek) || u.sek, fertig: false }
-            : { kg: ls ? ls.kg ?? 0 : u.kg ?? 0, wdh: ls && ls.wdh !== undefined ? ls.wdh : b ? b.min : null, fertig: false };
-        }),
-      };
+    name: u.name, zeit, planNotiz: u.notiz || '', ziel: zielText(u),
+    basis: planUebung.name, schwer: u.name !== planUebung.name, hatSchwer: !!(planUebung.schwer && planUebung.schwer.name),
+    letzte: letzteZeile(u.name, datum),
+    hinweis, notiz: '', pauseSek: pauseVon(u),
+    saetze: Array.from({ length: u.saetze || 3 }, (_, i) => {
+      const ls = l ? l.uebung.saetze[Math.min(i, l.uebung.saetze.length - 1)] : null;
+      return zeit
+        ? { sek: (ls && ls.sek) || u.sek, fertig: false }
+        : { kg: ls ? ls.kg ?? 0 : u.kg ?? 0, wdh: ls && ls.wdh !== undefined ? ls.wdh : b ? b.min : null, fertig: false };
     }),
   };
+}
+
+/** wahl[i] = true: von Übung i die anspruchsvollere Version nehmen. */
+function neuerEntwurf(einheit, datum, wahl = []) {
+  const { liste, gekuerzt, maxMin } = planListe(einheit, datum);
+  return {
+    einheit, datum, startMs: Date.now(), pauseBis: null, pauseGemeldet: true, zeitGemeldet: false,
+    maxMin, gekuerzt, verkuerzt: false, notiz: '', dauer_min: null,
+    uebungen: liste.map((u, i) => entwurfUebung(u, datum, !!wahl[i])),
+  };
+}
+
+// Auswahl auf der Übersicht vor dem Start (einfach/anspruchsvoll je Übung)
+let vorb = { einheit: null, datum: null, wahl: [] };
+
+/** Übersicht einer Einheit VOR dem Start: Übungen ansehen, Version wählen, dann selbst starten. */
+function vorbereitung(einheit, datum) {
+  const live = datum === heuteIso();
+  const { liste, gekuerzt, maxMin } = planListe(einheit, datum);
+  if (vorb.einheit !== einheit || vorb.datum !== datum || vorb.wahl.length !== liste.length) {
+    vorb = { einheit, datum, wahl: liste.map((u) => zuletztSchwer(S.state, u, datum)) };
+  }
+  const starte = () => {
+    if (live) tonBereit();
+    S.entwurf = neuerEntwurf(einheit, datum, vorb.wahl);
+    speichereEntwurf();
+    vorb = { einheit: null, datum: null, wahl: [] };
+    neu();
+    window.scrollTo(0, 0);
+  };
+  const startKnopf = () => h('button', { type: 'button', class: 'knopf haupt breit', onclick: starte }, live ? 'Training starten' : 'Sätze eintragen');
+  const knoten = h('div', null,
+    h('div', { class: 'hinweis ruhig' }, h('b', null, live ? 'Noch läuft keine Zeit' : `Nachtrag für ${deMitTag(datum)}`),
+      h('small', null, live ? `Sieh dir die Übungen an und wähle die Version. Die Zeit (max. ${maxMin} Min.) beginnt erst mit „Training starten“.` : 'Wähle die Versionen, die du gemacht hast.'),
+      gekuerzt ? h('small', null, `Minimalversion: nur die ersten ${liste.length} Übungen.`) : null),
+    h('div', { style: 'margin-bottom:12px' }, startKnopf()),
+    liste.map((planUebung, i) => {
+      const u = variante(planUebung, vorb.wahl[i]);
+      const hat = !!(planUebung.schwer && planUebung.schwer.name);
+      return h('section', { class: 'karte' },
+        h('h2', null, `${i + 1}. ${u.name}`),
+        hat ? h('p', null, h('span', { class: `marke ${vorb.wahl[i] ? 's-gelb' : 'neutral'}` }, vorb.wahl[i] ? 'Anspruchsvolle Version' : 'Einfache Version')) : null,
+        h('p', { class: 'fett' }, zielText(u)),
+        h('p', { class: 'klein' }, `Pause nach jedem Satz: ${pauseVon(u)} Sek.`),
+        u.notiz ? h('p', { class: 'klein' }, u.notiz) : null,
+        h('p', { class: 'klein' }, letzteZeile(u.name, datum)),
+        hat ? h('button', { type: 'button', class: 'knopf schmal breit abstand', onclick: () => { vorb.wahl[i] = !vorb.wahl[i]; neu(); } },
+          vorb.wahl[i] ? `↓ Einfacher: ${planUebung.name}` : `↑ Anspruchsvoller: ${planUebung.schwer.name}`) : null,
+      );
+    }),
+    startKnopf(),
+  );
+  return { titel: einheit, zurueck: live ? 'training' : `tag/${datum}`, knoten };
 }
 
 let audio = null;
@@ -230,7 +289,7 @@ function startScreen(einheit, datumArg) {
         h('button', { type: 'button', class: 'knopf gefahr', onclick: () => { if (confirm('Laufendes Training verwerfen?')) { S.entwurf = null; speichereEntwurf(); neu(); } } }, 'Verwerfen'),
       )) };
   }
-  if (!S.entwurf) { S.entwurf = neuerEntwurf(einheit, datum); speichereEntwurf(); }
+  if (!S.entwurf) return vorbereitung(einheit, datum);
   const en = S.entwurf;
   const live = datum === heuteIso();
   const sichern = () => speichereEntwurf();
@@ -306,6 +365,13 @@ function startScreen(einheit, datumArg) {
     beiVerlassen(() => clearInterval(takt));
   }
 
+  const wechsleVersion = (u) => {
+    const planUebung = planListe(einheit, datum).liste.find((x) => x.name === u.basis);
+    if (!planUebung) return;
+    en.uebungen[en.uebungen.indexOf(u)] = entwurfUebung(planUebung, datum, !u.schwer);
+    sichern(); neu();
+  };
+
   const uebungKarte = (u) => {
     const zeilen = h('div');
     const zeichne = () => zeilen.replaceChildren(
@@ -329,6 +395,7 @@ function startScreen(einheit, datumArg) {
     zeichne();
     return h('section', { class: 'karte' },
       h('h2', null, u.name),
+      u.hatSchwer ? h('p', null, h('span', { class: `marke ${u.schwer ? 's-gelb' : 'neutral'}` }, u.schwer ? 'Anspruchsvolle Version' : 'Einfache Version')) : null,
       h('p', { class: 'fett' }, `Ziel heute: ${u.ziel}`),
       h('p', null, h('span', { class: 'marke neutral' }, `Pause nach jedem Satz: ${u.pauseSek ?? standardPause()} Sek.`)),
       u.planNotiz ? h('p', { class: 'klein' }, u.planNotiz) : null,
@@ -340,6 +407,10 @@ function startScreen(einheit, datumArg) {
         h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (u.saetze.length > 1) { u.saetze.pop(); sichern(); zeichne(); } } }, '− Satz'),
       ),
       textFeld({ platzhalter: 'Notiz (Tempo, Technik …)', wert: u.notiz, onChange: (v) => { u.notiz = v; sichern(); } }),
+      u.hatSchwer ? h('button', { type: 'button', class: 'knopf schmal breit abstand', onclick: () => {
+        if (u.saetze.some((x) => x.fertig) && !confirm('Für diese Übung sind schon Sätze bestätigt. Beim Wechsel der Version gehen sie verloren. Trotzdem wechseln?')) return;
+        wechsleVersion(u);
+      } }, u.schwer ? `↓ Zur einfachen Version: ${u.basis}` : '↑ Zur anspruchsvolleren Version') : null,
     );
   };
 

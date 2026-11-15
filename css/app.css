@@ -205,6 +205,8 @@ body { overflow-x: hidden; }
 .satz.fertig input { background: var(--gruen-bg); }
 .planfelder { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin-top: 6px; }
 .planfelder input { padding: 10px 4px; text-align: center; }
+.variante { margin-top: 8px; padding: 8px 0 0 10px; border-left: 3px solid var(--gelb); }
+.variante > * { margin-bottom: 6px; }
 .satzkopf { font-size: 11px; color: var(--text2); text-align: center; }
 
 .vorschau-posten { border-top: 1px solid var(--rand); padding: 8px 0; }

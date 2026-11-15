@@ -53,7 +53,7 @@ function planKarte(b, d) {
     text = p.text || p.einheit || '';
     if (p.typ === 'kraft' || p.typ === 'bonus') {
       if (b.minimal && p.typ === 'kraft') text += ` – Minimalversion: ${mk.minuten} Min., die ersten ${mk.uebungen} Übungen`;
-      knopf = h('a', { class: 'knopf haupt breit', href: `#training/start/${encodeURIComponent(p.einheit)}` }, S.entwurf ? 'Training fortsetzen' : `${p.einheit} starten`);
+      knopf = h('a', { class: 'knopf haupt breit', href: `#training/start/${encodeURIComponent(p.einheit)}` }, S.entwurf ? 'Training fortsetzen' : `${p.einheit} öffnen`);
     } else if (p.typ === 'laufband') {
       if (b.minimal) text += ' (Minimalversion: ohne Wertung)';
       knopf = h('a', { class: 'knopf haupt breit', href: `#training/cardio/Laufband/${d}` }, 'Laufband eintragen');

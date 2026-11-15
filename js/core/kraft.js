@@ -50,3 +50,36 @@ export function vergleich(alt, neu) {
   pruefe(neu.sekSumme - alt.sekSumme, 'Sek.');
   return { text: teile.length ? teile.join(', ') : 'gleich', richtung };
 }
+
+/**
+ * Liefert die Übung so, wie sie trainiert wird: die einfache Version oder (schwer = true) die
+ * anspruchsvollere aus `u.schwer`. Die schwere Version erbt Sätze und Pause; Wiederholungen,
+ * Haltezeit und Gewicht erbt sie nur, wenn sie selbst nichts angibt.
+ */
+export function variante(u, schwer) {
+  const { schwer: s, ...basis } = u;
+  if (!schwer || !s || !s.name) return basis;
+  const v = { name: s.name, saetze: s.saetze ?? u.saetze, wdh: '', kg: s.kg ?? u.kg ?? null };
+  const hatWdh = (x) => x.wdh !== undefined && x.wdh !== null && x.wdh !== '';
+  const quelle = hatWdh(s) || s.sek !== undefined ? s : u;
+  if (quelle.sek !== undefined && !hatWdh(quelle)) v.sek = quelle.sek;
+  else v.wdh = quelle.wdh ?? '';
+  const pause = s.pause_sek ?? u.pause_sek;
+  if (typeof pause === 'number') v.pause_sek = pause;
+  if (s.notiz) v.notiz = s.notiz;
+  return v;
+}
+
+/** Wurde von dieser Plan-Übung zuletzt die anspruchsvollere Version trainiert? (Vorbelegung der Auswahl) */
+export function zuletztSchwer(state, u, bisDatum) {
+  if (!u.schwer || !u.schwer.name) return false;
+  const einfach = uebungsSchluessel(u.name);
+  const schwer = uebungsSchluessel(u.schwer.name);
+  const einheiten = state.trainings.filter((t) => t.typ === 'kraft' && t.datum <= bisDatum).sort((a, b) => (a.datum < b.datum ? 1 : a.datum > b.datum ? -1 : 0));
+  for (const t of einheiten) {
+    const namen = (t.uebungen || []).filter((x) => x.saetze && x.saetze.length).map((x) => uebungsSchluessel(x.name));
+    if (namen.includes(schwer)) return true;
+    if (namen.includes(einfach)) return false;
+  }
+  return false;
+}

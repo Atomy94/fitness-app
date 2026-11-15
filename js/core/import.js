@@ -81,11 +81,13 @@ function pruefeWert(spec, wert, wo, fehler) {
   if (typ === 'uebungen') return pruefeUebungen(wert, wo, fehler);
   if (typ === 'planuebungen') {
     if (!Array.isArray(wert) || !wert.length) { fehler.push(`${wo}: muss eine Liste mit mindestens einer Übung sein.`); return undefined; }
-    const aus = [];
-    wert.forEach((u, i) => {
-      const w = `${wo}[${i + 1}]`;
-      if (!u || typeof u !== 'object' || typeof u.name !== 'string' || !u.name.trim()) { fehler.push(`${w}: jede Übung braucht einen "name".`); return; }
-      const ueb = { name: u.name.trim(), saetze: 3, wdh: '', kg: null };
+    // istVariante: die anspruchsvollere Version ("schwer") – ohne Vorgabewerte, Fehlendes erbt sie von der einfachen.
+    const pruefeUebung = (u, w, istVariante) => {
+      if (!u || typeof u !== 'object' || Array.isArray(u) || typeof u.name !== 'string' || !u.name.trim()) {
+        fehler.push(`${w}: ${istVariante ? 'die anspruchsvollere Version' : 'jede Übung'} braucht einen "name".`);
+        return null;
+      }
+      const ueb = istVariante ? { name: u.name.trim() } : { name: u.name.trim(), saetze: 3, wdh: '', kg: null };
       const zahl = (feld, spec) => {
         if (u[feld] === undefined || u[feld] === null) return;
         const v = pruefeWert(spec, u[feld], `${w}.${feld}`, fehler);
@@ -95,7 +97,16 @@ function pruefeWert(spec, wert, wo, fehler) {
       if (typeof u.wdh === 'number' || typeof u.wdh === 'string') ueb.wdh = String(u.wdh).trim();
       else if (u.wdh !== undefined && u.wdh !== null) fehler.push(`${w}.wdh: muss eine Zahl oder ein Text wie "8-12" sein.`);
       if (typeof u.notiz === 'string' && u.notiz.trim()) ueb.notiz = u.notiz.trim();
-      aus.push(ueb);
+      if (!istVariante && u.schwer !== undefined && u.schwer !== null) {
+        const s = pruefeUebung(u.schwer, `${w}.schwer`, true);
+        if (s) ueb.schwer = s;
+      }
+      return ueb;
+    };
+    const aus = [];
+    wert.forEach((u, i) => {
+      const ueb = pruefeUebung(u, `${wo}[${i + 1}]`, false);
+      if (ueb) aus.push(ueb);
     });
     return aus;
   }
@@ -314,7 +325,7 @@ export function verarbeite(stateAlt, eintraege, optionen = {}) {
       p.titel = `Trainingsplan: Einheit „${e.name}“`;
       const plan = state.einstellungen.plan;
       const alt = plan.einheiten[e.name];
-      const kurz = (u) => `${u.name} (${u.saetze} × ${u.sek ? u.sek + ' Sek.' : u.wdh || '?'}${u.kg ? ', ' + fmt(u.kg, 1) + ' kg' : ''}${typeof u.pause_sek === 'number' ? ', Pause ' + u.pause_sek + ' Sek.' : ''})`;
+      const kurz = (u) => `${u.name} (${u.saetze} × ${u.sek ? u.sek + ' Sek.' : u.wdh || '?'}${u.kg ? ', ' + fmt(u.kg, 1) + ' kg' : ''}${typeof u.pause_sek === 'number' ? ', Pause ' + u.pause_sek + ' Sek.' : ''})${u.schwer ? ' [anspruchsvoller: ' + u.schwer.name + ']' : ''}`;
       if (alt && gleich(alt, e.uebungen)) p.art = 'gleich';
       else {
         p.art = alt ? 'ersetzt' : 'neu';

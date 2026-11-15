@@ -159,6 +159,7 @@ Gleicher Name: Das vorhandene Rezept wird ergänzt bzw. überschrieben (nur die 
 | `uebungen[].sek` | ganze Zahl | Haltezeit statt Wiederholungen |
 | `uebungen[].pause_sek` | ganze Zahl 0–600 | vorgeschriebene Pause nach jedem Satz; fehlt sie, gilt die Standard-Pause der App |
 | `uebungen[].notiz` | Text | Hinweis zu Tempo, Technik, Supersatz |
+| `uebungen[].schwer` | Objekt | ab 1.4: die **anspruchsvollere Version** derselben Übung, z. B. `{ "name": "Liegestütze Füße erhöht", "wdh": "6-10", "notiz": "Füße auf einem Stuhl" }`. Pflicht ist nur `name`; erlaubt sind außerdem `wdh`, `kg`, `sek`, `saetze`, `pause_sek`, `notiz`. Was fehlt, übernimmt die App von der einfachen Version (die Notiz nicht). Der Nutzer wählt vor und während des Trainings per Knopf. |
 
 Bereits gespeicherte Trainings bleiben unverändert. Die Vorschau zeigt die alte und die neue Übungsliste.
 

@@ -30,8 +30,8 @@ export function standardWochenplan() {
 export function standardEinheiten() {
   const u = (name, saetze, wdh, kg = null, extra = {}) => ({ name, saetze, wdh, kg, pause_sek: kg ? 75 : 45, ...extra });
   return {
-    'Kraft A': [u('Liegestütze', 3, '10'), u('Einarmiges Rudern', 3, '10-12', 14), u('Schulterdrücken', 3, '8-12', 12), u('Glute Bridge', 3, '12-15', 10), u('Dead Bug', 3, '10')],
-    'Kraft B': [u('Goblet Squat', 3, '10-12', 16), u('Ausfallschritt rückwärts', 2, '10', 8), u('Rudern vorgebeugt', 3, '8-12', 20), u('Kreuzheben gestreckt', 3, '12', 20), u('Seitstütz', 2, '', null, { sek: 40 })],
+    'Kraft A': [u('Liegestütze', 3, '10', null, { schwer: { name: 'Liegestütze Füße erhöht', wdh: '6-10', notiz: 'Füße auf einem Stuhl' } }), u('Einarmiges Rudern', 3, '10-12', 14), u('Schulterdrücken', 3, '8-12', 12, { schwer: { name: 'Einarmiges Schulterdrücken', kg: 10 } }), u('Glute Bridge', 3, '12-15', 10), u('Dead Bug', 3, '10')],
+    'Kraft B': [u('Goblet Squat', 3, '10-12', 16), u('Ausfallschritt rückwärts', 2, '10', 8), u('Rudern vorgebeugt', 3, '8-12', 20), u('Kreuzheben gestreckt', 3, '12', 20, { schwer: { name: 'Einbeiniges Kreuzheben', wdh: '8-12', kg: 10 } }), u('Seitstütz', 2, '', null, { sek: 40 })],
     'Kraft C': [u('Liegestütze', 3, '10'), u('Einarmiges Rudern', 3, '12', 14), u('Schulterdrücken', 2, '10', 12), u('Unterarmstütz', 2, '', null, { sek: 40 })],
   };
 }

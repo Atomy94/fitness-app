@@ -14,7 +14,7 @@ import { de, montag, plusTage, kw, WT_LANG } from './datum.js';
 
 export const ORDNER = { eingang: '/eingang', erledigt: '/erledigt', sicherung: '/sicherung' };
 export const DATEI = { stand: '/stand.md', rezepte: '/rezepte.md', liesmich: '/LIESMICH-fuer-Claude.md', sicherung: '/sicherung/fitness-sicherung.json' };
-export const LIESMICH_VERSION = 2;
+export const LIESMICH_VERSION = 3;
 
 const ohneId = ({ id, ...rest }) => rest;
 const nachDatum = (a, b) => (a.datum < b.datum ? -1 : a.datum > b.datum ? 1 : 0);
@@ -168,7 +168,7 @@ FITNESS-IMPORT v1
     { "typ": "ziel", "gueltig_ab": "2026-12-07", "schluessel": "kcal_mo_sa_min", "wert": 2350 },
     { "typ": "blutwert", "datum": "2026-11-12", "name": "Ferritin", "wert": 250, "einheit": "ng/ml", "norm_min": 30, "norm_max": 400 },
     { "typ": "rezept", "name": "Linsensuppe", "kategorie": "Mittagessen", "bezug": "100g", "kcal": 85, "eiweiss_g": 5.2, "zutaten": [ { "name": "Rote Linsen", "menge": "300 g" } ] },
-    { "typ": "einheit", "name": "Kraft A", "uebungen": [ { "name": "Liegestütze", "saetze": 3, "wdh": "8-12", "kg": 0, "pause_sek": 60, "notiz": "2 Wdh. Reserve" }, { "name": "Seitstütz", "saetze": 2, "sek": 40, "pause_sek": 30 } ] }
+    { "typ": "einheit", "name": "Kraft A", "uebungen": [ { "name": "Liegestütze", "saetze": 3, "wdh": "8-12", "kg": 0, "pause_sek": 60, "notiz": "2 Wdh. Reserve", "schwer": { "name": "Liegestütze Füße erhöht", "wdh": "6-10", "notiz": "Füße auf einem Stuhl" } }, { "name": "Seitstütz", "saetze": 2, "sek": 40, "pause_sek": 30 } ] }
   ]
 }
 \`\`\`
@@ -190,7 +190,7 @@ Der Nutzer sieht beim nächsten Öffnen der App eine Vorschau (alter Wert → ne
 - **messung**: bauch_cm, koerperfett_pct, gewicht_kg, muskelmasse_kg, fettmasse_kg, fettfrei_kg, viszeral, grundumsatz_kcal, liegestuetze_max, kniebeugen_max, quelle („Maßband“, „Tanita“, „Krafttest“), ungueltig, grund
 - **blutwert**: name, wert, wert_text, einheit, norm_min, norm_max
 - **rezept**: name, kategorie (${KATEGORIEN.join(' / ')}), bezug („portion“ oder „100g“), portion, zutaten [ { name, menge } ], kcal, eiweiss_g, kh_g, fett_g, ges_fett_g, zucker_g, ballaststoffe_g, salz_g, notiz. Gleicher Name ergänzt das vorhandene Rezept.
-- **einheit** (Trainingsplan, kein Datum): name (z. B. „Kraft A“) und uebungen [ { name, saetze, wdh (Zahl oder Text wie „8-12“), kg (Startgewicht), sek (bei Halteübungen statt wdh), pause_sek (vorgeschriebene Pause nach jedem Satz), notiz } ]. **Ersetzt die komplette Übungsliste** dieser Einheit; die Reihenfolge zählt (in der Minimalversion werden nur die ersten Übungen gemacht). Den aktuellen Plan findest du in \`stand.md\` unter \`einheiten_plan\`. Nur auf ausdrücklichen Wunsch des Nutzers ändern.
+- **einheit** (Trainingsplan, kein Datum): name (z. B. „Kraft A“) und uebungen [ { name, saetze, wdh (Zahl oder Text wie „8-12“), kg (Startgewicht), sek (bei Halteübungen statt wdh), pause_sek (vorgeschriebene Pause nach jedem Satz), notiz, schwer } ]. \`schwer\` ist optional die anspruchsvollere Version derselben Übung: { name (Pflicht), wdh, kg, sek, saetze, pause_sek, notiz }; was dort fehlt, übernimmt die App von der einfachen Version. Der Nutzer wählt vor dem Training per Knopf zwischen einfacher und anspruchsvoller Version. **Ersetzt die komplette Übungsliste** dieser Einheit; die Reihenfolge zählt (in der Minimalversion werden nur die ersten Übungen gemacht). Den aktuellen Plan findest du in \`stand.md\` unter \`einheiten_plan\`. Nur auf ausdrücklichen Wunsch des Nutzers ändern.
 - **ziel**: gilt ab \`gueltig_ab\`; frühere Tage behalten den alten Wert. Erlaubte Schlüssel:
 
 ${ziele}

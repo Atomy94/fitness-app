@@ -86,7 +86,7 @@ IndexedDB-Datenbank `fitness-app` (echte Daten) bzw. `fitness-app-demo` (Testdat
 | `messungen` | Liste, ein Eintrag je Datum+Quelle: `bauch_cm, koerperfett_pct, gewicht_kg, muskelmasse_kg, …, liegestuetze_max, kniebeugen_max, quelle, ungueltig, grund` |
 | `blutwerte` | Liste: `{ id, datum, name, wert, wert_text, einheit, norm_min, norm_max }` |
 | `ziele` | Liste: `{ id, schluessel, gueltig_ab, wert }` – Schlüssel siehe `ZIEL_INFO` / IMPORT-FORMAT.md |
-| `einstellungen` | `start, profil, phasen, minimal.zeitraeume[{von,bis}], minimalKraft, plan{maxMinuten, wochenplan{1..7}, wochenplanAlt[{bis, wochenplan}], einheiten{Name:[{ name, saetze, wdh, kg, kg_text, sek, pause_sek, notiz }]}, progression}, zielpfad{von,bis}, pauseSek, supplements, letzteSicherung, eingerichtet, archiv` |
+| `einstellungen` | `start, profil, phasen, minimal.zeitraeume[{von,bis}], minimalKraft, plan{maxMinuten, wochenplan{1..7}, wochenplanAlt[{bis, wochenplan}], einheiten{Name:[{ name, saetze, wdh, kg, kg_text, sek, pause_sek, notiz, schwer:{ name, wdh, kg, sek, saetze, pause_sek, notiz } }]}, progression}, zielpfad{von,bis}, pauseSek, supplements, letzteSicherung, eingerichtet, archiv` |
 | `checkins` | Objekt je Montag: `{ verdauung, besonderheiten }` |
 | `rezepte` | Liste: `{ id, name, kategorie (Frühstück/Mittagessen/Abendessen/Snacks), bezug:'portion'|'100g', portion, zutaten:[{ name, menge }], kcal, eiweiss_g, kh_g, fett_g, ges_fett_g, zucker_g, ballaststoffe_g, salz_g, notiz }`. Fehlt die Sammlung (Stand aus 1.0), baut `ergaenze()` sie aus `einstellungen.archiv`. |
 | `entwurf` | laufendes Training (nicht Teil der Sicherung): Übungen mit Sätzen, `startMs`, `angehaltenSeit`, `angehaltenMs` (angehaltene Zeit zählt nicht zur Dauer), `pauseBis` (Satzpause) |
@@ -141,6 +141,8 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 
 ## Training durchführen und Steigerung
 
+- **Ablauf (seit 1.4):** Eine Einheit öffnet zuerst eine **Übersicht ohne Zeit** (`vorbereitung()` in `js/ui/training.js`): alle Übungen mit Ziel, Pause und letztem Stand. Erst „Training starten“ legt den Entwurf an und startet die Zeit.
+- **Einfache und anspruchsvolle Version:** Hat eine Plan-Übung `schwer`, gibt es je Übung einen Knopf zum Wechseln (in der Übersicht und im laufenden Training). `variante()` in `js/core/kraft.js` baut die anspruchsvolle Version (erbt Sätze und Pause; Wdh./Sek./kg nur, wenn sie selbst nichts angibt). Vorbelegt wird die zuletzt trainierte Version (`zuletztSchwer()`). Beide Versionen haben eigene Namen und damit getrennte Verläufe unter „Steigerung je Übung“. Pflegbar unter Mehr → Trainingsplan oder per Import (`einheit`, Feld `schwer`).
 - **Pause je Übung:** `pause_sek` im Plan ist die vorgeschriebene Pause nach jedem Satz. Nach ✓ startet der Timer mit genau diesem Wert und zeigt „Soll … Sek.“. Ohne Angabe gilt `einstellungen.pauseSek` (Standard-Pause). Einstellbar unter Mehr → Trainingsplan (Feld „Pause“) oder per Import (`einheit`).
 - Timer oben: **Anhalten/Fortsetzen** (ganze Einheit, Zeit steht) und **Beenden** (speichert bestätigte Sätze, fragt bei offenen Sätzen nach). Darunter die Satzpause, die nach jedem ✓ automatisch startet.
 - Jede gespeicherte Einheit hält je Übung alle Sätze mit Gewicht und Wiederholungen fest.

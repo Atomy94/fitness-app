@@ -325,6 +325,22 @@ function planScreen() {
       zahlFeld({ label: 'Pause', wert: u.pause_sek ?? null, platzhalter: String(e.pauseSek), ganz: true, min: 0, max: 600, onChange: (v) => { if (v === null) delete u.pause_sek; else u.pause_sek = v; sichere(false); } }),
     ),
     textFeld({ platzhalter: 'Hinweis (Tempo, Technik …)', wert: u.notiz, onChange: (v) => { if (v) u.notiz = v; else delete u.notiz; sichere(false); } }),
+    // Anspruchsvollere Version: beim Training per Knopf wählbar. Leere Felder übernimmt sie von der einfachen.
+    u.schwer
+      ? h('div', { class: 'variante' },
+        h('div', { class: 'zeile' },
+          h('b', { class: 'wachs klein' }, '↑ Anspruchsvollere Version'),
+          h('button', { type: 'button', class: 'knopf schmal gefahr', 'aria-label': 'Anspruchsvollere Version entfernen', onclick: () => { if (confirm('Anspruchsvollere Version entfernen?')) { delete u.schwer; sichere(); } } }, '✕'),
+        ),
+        textFeld({ platzhalter: 'Name der anspruchsvolleren Übung', wert: u.schwer.name, onChange: (v) => { u.schwer.name = v; sichere(false); } }),
+        h('div', { class: 'planfelder', style: 'grid-template-columns:repeat(3,minmax(0,1fr))' },
+          textFeld({ label: 'Wdh.', wert: u.schwer.wdh, platzhalter: u.wdh || '', onChange: (v) => { if (v) u.schwer.wdh = v; else delete u.schwer.wdh; sichere(false); } }),
+          zahlFeld({ label: 'kg', wert: u.schwer.kg ?? null, platzhalter: u.kg ? String(u.kg) : '', min: 0, max: 1000, onChange: (v) => { if (v === null) delete u.schwer.kg; else u.schwer.kg = v; sichere(false); } }),
+          zahlFeld({ label: 'Sek.', wert: u.schwer.sek ?? null, ganz: true, min: 0, max: 3600, onChange: (v) => { if (v) u.schwer.sek = v; else delete u.schwer.sek; sichere(false); } }),
+        ),
+        textFeld({ platzhalter: 'Hinweis zur anspruchsvolleren Version', wert: u.schwer.notiz, onChange: (v) => { if (v) u.schwer.notiz = v; else delete u.schwer.notiz; sichere(false); } }),
+      )
+      : h('button', { type: 'button', class: 'knopf schmal breit abstand', onclick: () => { u.schwer = { name: '' }; sichere(); } }, '+ Anspruchsvollere Version'),
   );
 
   return { titel: 'Trainingsplan', zurueck, knoten: h('div', null,
