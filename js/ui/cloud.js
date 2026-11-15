@@ -3,7 +3,7 @@
 import { S, neu, setzeState, meldung } from '../store.js';
 import { h, karte, textFeld, kopiere } from './dom.js';
 import { vorschauKarte } from './vorschau.js';
-import { istVerbunden, anmeldungVorbereiten, anmeldungAbschliessen, trennen, abgleichen, erledige } from '../cloud.js';
+import { istVerbunden, anmeldungVorbereiten, anmeldungAbschliessen, anmeldungVerwerfen, offeneAnmeldung, trennen, abgleichen, erledige } from '../cloud.js';
 
 const form = { appKey: '', code: '', url: '', beschaeftigt: false };
 const blur = () => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); };
@@ -14,6 +14,8 @@ const SATZ_FUER_CLAUDE = 'Lies in meiner Dropbox die Datei „LIESMICH-fuer-Clau
 function einrichten() {
   const c = S.cloud || {};
   if (!form.appKey && c.appKey) form.appKey = c.appKey;
+  // Begonnene Anmeldung fortsetzen (z. B. nach Neuladen): gleicher Link, damit ein geholter Code noch passt.
+  if (!form.url && offeneAnmeldung() && c.appKey === form.appKey) form.url = offeneAnmeldung();
   const schritt = (nr, titel, ...inhalt) => h('section', { class: 'karte' }, h('h2', null, `Schritt ${nr}: ${titel}`), ...inhalt);
   return [
     h('div', { class: 'hinweis ruhig' }, h('b', null, 'So funktioniert es'),
@@ -27,29 +29,43 @@ function einrichten() {
         h('li', null, 'Reiter „Settings“: den „App key“ kopieren.'),
       )),
     schritt(2, 'App key eintragen',
-      textFeld({ platzhalter: 'App key (ca. 15 Zeichen)', wert: form.appKey, onChange: (v) => { form.appKey = v; form.url = ''; neu(); } }),
+      textFeld({ platzhalter: 'App key (ca. 15 Zeichen)', wert: form.appKey, onChange: async (v) => {
+        if (v === form.appKey) return;
+        form.appKey = v; form.url = ''; form.code = '';
+        await anmeldungVerwerfen(); // anderer Schlüssel: alter Link gilt nicht mehr
+        neu();
+      } }),
       h('button', { type: 'button', class: 'knopf haupt breit abstand', disabled: !form.appKey, onclick: async () => {
         blur();
         try { form.url = await anmeldungVorbereiten(form.appKey); neu(); } catch (e) { meldung(e.message || String(e)); }
       } }, 'Weiter'),
     ),
     form.url ? schritt(3, 'Bei Dropbox anmelden und Code einfügen',
-      h('p', { class: 'klein' }, 'Tippe auf den Knopf, erlaube den Zugriff und kopiere den angezeigten Code. Komm dann hierher zurück.'),
+      h('p', { class: 'klein' }, 'Tippe auf den Knopf, erlaube den Zugriff und kopiere den angezeigten Code. Komm dann hierher zurück und füge ihn gleich ein: Ein Code gilt nur wenige Minuten und nur ein einziges Mal.'),
       h('a', { class: 'knopf breit abstand', href: form.url, target: '_blank', rel: 'noopener' }, 'Bei Dropbox anmelden ↗'),
       h('div', { class: 'abstand' }, textFeld({ platzhalter: 'Code von Dropbox einfügen', wert: form.code, onChange: (v) => { form.code = v; } })),
       h('button', { type: 'button', class: 'knopf haupt breit abstand', disabled: form.beschaeftigt, onclick: async () => {
         blur();
+        if (form.beschaeftigt) return; // doppeltes Tippen würde den Code zweimal einlösen
         if (!form.code) { meldung('Bitte den Code von Dropbox einfügen.'); return; }
         form.beschaeftigt = true;
+        let fehler = null;
         try {
           await anmeldungAbschliessen(form.code);
-          form.code = ''; form.url = '';
+          form.url = '';
           meldung('Mit Dropbox verbunden');
           await abgleichen({ stumm: false });
-        } catch (e) { alert(e.message || String(e)); }
+        } catch (e) { fehler = e.message || String(e); }
+        form.code = ''; // ein Code ist nach einem Versuch verbraucht
         form.beschaeftigt = false;
         neu();
+        if (fehler) setTimeout(() => alert(fehler), 50);
       } }, 'Verbinden'),
+      h('button', { type: 'button', class: 'knopf schmal breit abstand', onclick: async () => {
+        await anmeldungVerwerfen(); form.url = ''; form.code = '';
+        try { form.url = await anmeldungVorbereiten(form.appKey); } catch (e) { meldung(e.message || String(e)); }
+        neu();
+      } }, 'Neuen Anmeldelink erzeugen'),
     ) : null,
   ];
 }

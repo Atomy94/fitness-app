@@ -52,7 +52,11 @@ async function sende(f, url, optionen) {
   let text = '';
   try { text = await antwort.text(); } catch { /* leer */ }
   let code = '';
-  try { const j = JSON.parse(text); code = j.error_summary || (typeof j.error === 'string' ? j.error : (j.error && j.error['.tag'])) || ''; } catch { code = text.slice(0, 120); }
+  try {
+    const j = JSON.parse(text);
+    code = j.error_summary || (typeof j.error === 'string' ? j.error : (j.error && j.error['.tag'])) || '';
+    if (j.error_description) code += ` – ${j.error_description}`; // Klartext von Dropbox mit anzeigen
+  } catch { code = text.slice(0, 120); }
   if (antwort.status === 401) throw new DropboxFehler('Die Dropbox-Anmeldung ist abgelaufen. Bitte neu verbinden.', { status: 401, code });
   if (antwort.status === 429) throw new DropboxFehler('Dropbox ist gerade überlastet. Bitte später erneut versuchen.', { status: 429, code });
   throw new DropboxFehler(`Dropbox meldet einen Fehler (${antwort.status}${code ? ': ' + code : ''}).`, { status: antwort.status, code });
@@ -66,7 +70,14 @@ export async function tauscheCode(f, { appKey, code, verifier }) {
   try {
     antwort = await sende(f, TOKEN, formular({ grant_type: 'authorization_code', code: code.trim(), code_verifier: verifier, client_id: appKey }));
   } catch (e) {
-    if (e.status === 400) throw new DropboxFehler('Der Code oder der App-Schlüssel ist ungültig oder abgelaufen. Bitte „Bei Dropbox anmelden“ erneut antippen und den neuen Code einfügen.', { status: 400, code: e.code });
+    if (e.status === 400) {
+      // Dropbox nennt den Grund im Klartext; ein Code gilt nur wenige Minuten und nur einmal.
+      const grund = /verifier/i.test(e.code) ? 'Der Code passt nicht zu diesem Anmeldelink.'
+        : /expired|doesn't exist/i.test(e.code) ? 'Der Code ist abgelaufen oder wurde schon einmal benutzt.'
+          : /client/i.test(e.code) ? 'Der App key wird von Dropbox nicht erkannt.'
+            : 'Dropbox hat den Code abgelehnt.';
+      throw new DropboxFehler(`${grund} Bitte „Bei Dropbox anmelden“ erneut antippen, den NEUEN Code kopieren und gleich einfügen.\n\n(Antwort von Dropbox: ${e.code || 'keine Angabe'})`, { status: 400, code: e.code });
+    }
     throw e;
   }
   const j = await antwort.json();

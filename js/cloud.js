@@ -26,10 +26,26 @@ const box = () => dropbox(f, holeToken);
 
 /** Schritt 1: liefert die Adresse der Dropbox-Anmeldeseite und merkt sich das Geheimnis. */
 export async function anmeldungVorbereiten(appKey) {
+  const key = appKey.trim();
+  // Eine begonnene Anmeldung wird fortgesetzt (z. B. nach einem Neuladen der App). Würde hier ein
+  // neues Geheimnis erzeugt, passte ein schon geholter Code nicht mehr dazu.
+  const offen = offeneAnmeldung();
+  if (offen && S.cloud.appKey === key) return offen;
   const { verifier, challenge } = await pkce();
-  S.cloud = { ...(S.cloud || {}), appKey: appKey.trim(), verifier, refreshToken: null, accessToken: null };
+  S.cloud = { appKey: key, verifier, anmeldeUrl: anmeldeUrl(key, challenge), refreshToken: null, accessToken: null };
   await speichereCloud();
-  return anmeldeUrl(S.cloud.appKey, challenge);
+  return S.cloud.anmeldeUrl;
+}
+
+/** Adresse einer begonnenen, noch nicht abgeschlossenen Anmeldung (oder null). */
+export function offeneAnmeldung() {
+  const c = S.cloud;
+  return c && !c.refreshToken && c.verifier && c.anmeldeUrl ? c.anmeldeUrl : null;
+}
+
+/** Verwirft eine begonnene Anmeldung (neuer Link, neues Geheimnis). */
+export async function anmeldungVerwerfen() {
+  if (S.cloud) { S.cloud = { appKey: S.cloud.appKey }; await speichereCloud(); }
 }
 
 /** Schritt 2: Code von der Dropbox-Seite einlösen. */

@@ -51,8 +51,13 @@ test('Dropbox: Code einlösen und Token erneuern', async () => {
   assert.equal(n.accessToken, 'A2');
   assert.equal(new URLSearchParams(m.anfragen[0].body).get('grant_type'), 'refresh_token');
 
-  m = falschesFetch([{ status: 400, json: { error: 'invalid_grant' } }]);
-  await assert.rejects(tauscheCode(m.f, { appKey: 'key', code: 'x', verifier: 'v' }), /Code oder der App-Schlüssel ist ungültig/);
+  // Abgelehnter Code: verständlicher Grund plus die Original-Antwort von Dropbox
+  m = falschesFetch([{ status: 400, json: { error: 'invalid_grant', error_description: "code doesn't exist or has expired" } }]);
+  await assert.rejects(tauscheCode(m.f, { appKey: 'key', code: 'x', verifier: 'v' }), (e) => e.status === 400 && /abgelaufen oder wurde schon einmal benutzt/.test(e.message) && /code doesn't exist or has expired/.test(e.message));
+  m = falschesFetch([{ status: 400, json: { error: 'invalid_grant', error_description: 'invalid code verifier' } }]);
+  await assert.rejects(tauscheCode(m.f, { appKey: 'key', code: 'x', verifier: 'v' }), /passt nicht zu diesem Anmeldelink/);
+  m = falschesFetch([{ status: 400, json: { error: 'invalid_client', error_description: 'Invalid client_id or client_secret' } }]);
+  await assert.rejects(tauscheCode(m.f, { appKey: 'key', code: 'x', verifier: 'v' }), /App key wird von Dropbox nicht erkannt/);
   m = falschesFetch([{ status: 400, json: { error: 'invalid_grant' } }]);
   await assert.rejects(erneuereToken(m.f, { appKey: 'key', refreshToken: 'alt' }), (e) => e instanceof DropboxFehler && e.status === 401);
 });
