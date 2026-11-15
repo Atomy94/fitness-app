@@ -3,6 +3,7 @@
 import { S, heuteIso, neu, setzeState, wechsleModus, speichern, meldung } from '../store.js';
 import { h, karte, ring, punkt, STATUS_TEXT } from './dom.js';
 import { tagFormular, einheitText } from './tag.js';
+import { symbol, kachel } from './symbole.js';
 import { tagBewertung } from '../core/bewertung.js';
 import { ausHealthData } from '../core/erstimport.js';
 import { fmt } from '../core/zahl.js';
@@ -65,8 +66,9 @@ function planKarte(b, d) {
     }
   }
   const erledigt = b.training === 'gruen' || b.training === 'gelb';
+  const bild = !p ? 'ruhe' : p.typ === 'laufband' ? 'Laufband' : p.typ === 'fussball' ? (b.tag.fussball === false ? 'Spaziergang' : 'Fußball') : 'Krafttraining';
   return karte('Heute laut Plan',
-    h('p', { class: 'fett' }, text),
+    h('div', { class: 'ukopf' }, bild === 'ruhe' ? h('span', { class: 'kachel k-kraft' }, symbol('ruhe')) : kachel(bild), h('p', { class: 'fett wachs' }, text)),
     b.einheiten.length ? h('div', { class: 'liste' }, b.einheiten.map((e) => h('a', { href: `#training/einheit/${e.id}` }, h('span', { class: 'wachs' }, `✓ ${einheitText(e)}`), h('span', { class: 'pfeil' }, '›')))) : null,
     knopf && !erledigt ? h('div', { class: 'abstand' }, knopf) : null,
   );

@@ -68,6 +68,7 @@ js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
 js/ui/                  Bildschirme, je ein Modul
   dom.js                Bausteine: h(), Felder, Punkte, Ring, Diagramm (eigenes SVG)
   heute.js  kalender.js  tag.js  training.js  fortschritt.js  mehr.js  rezepte.js (#rezepte, erreichbar über „Mehr“)
+  symbole.js (eigene SVG-Symbole; uebungsArt(name) ordnet Übungen/Sportarten Symbol und Farbgruppe zu; kachel())
   cloud.js (#cloud, Claude-Verbindung)  vorschau.js (Import-Vorschau, von Einfüge-Import und Dropbox-Eingang benutzt)
 tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
 tools/                  server.mjs (Vorschau), make-icons.mjs
@@ -139,6 +140,12 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 - **Prüfstand (15.11.2026):** Anmeldung und erster Abgleich mit dem echten Dropbox-Konto des Nutzers funktionieren (Version 1.2.1). Der ganze Kreislauf ist bestätigt: Claudes Dropbox-Connector legt Dateien in `eingang/` an, die App holt sie ab und verschiebt sie nach `erledigt/` (dort liegen verarbeitete Importe vom 15.11.). Der App-Ordner des Nutzers liegt in der Dropbox unter `/Apps/` (Name der Dropbox-App).
 - **Versionen beachten:** Ein Import mit neuen Typen oder Feldern (z. B. `einheit` ab 1.3, `schwer` ab 1.4) setzt voraus, dass die App auf dem iPhone schon aktualisiert ist. Ältere Versionen lehnen unbekannte Typen ab und ignorieren unbekannte Felder still.
 - Eine begonnene Anmeldung (`verifier`, `anmeldeUrl`) bleibt gespeichert, bis sie abgeschlossen oder verworfen wird. Sonst passt ein schon geholter Code nach einem Neuladen nicht mehr.
+
+## Gestaltung (seit 1.5)
+
+- **Symbole:** `js/ui/symbole.js` enthält alle Symbole als einfache Strichzeichnungen (24 × 24, `currentColor`). Neue Übung ohne passendes Symbol → Muster in `ARTEN` ergänzen (erster Treffer gewinnt), sonst erscheint die Hantel.
+- **Farbgruppen** (`.k-druecken`, `.k-ziehen`, `.k-schulter`, `.k-beine`, `.k-rueckseite`, `.k-rumpf`, `.k-cardio`, `.k-kraft` in `css/app.css`): eigene Farbe je Gruppe, jeweils für hell und dunkel. **Grün, Gelb und Rot bleiben dem Status vorbehalten** und werden nicht als Gruppenfarbe verwendet.
+- **Bausteine im Trainingsbereich:** Wochenleiste (`wochenLeiste`, Farbe = Status des Trainings), Einheiten-Karten (`einheitKarte`), Marken mit Symbol (`chip`, `zielChips`), Übungskarte mit farbigem Rand, Symbol und Satz-Punkten (`.ukarte`, `.pips`), Timer mit Zeitbalken und „x von y Sätzen“.
 
 ## Training durchführen und Steigerung
 

@@ -2,13 +2,15 @@
 // Liste aller Einheiten, Verlauf und Bestwert pro Übung.
 
 import { S, heuteIso, neu, speichern, speichereEntwurf, beiVerlassen, meldung } from '../store.js';
-import { h, karte, zahlFeld, textFeld, datumFeld, diagramm } from './dom.js';
+import { h, karte, zahlFeld, textFeld, datumFeld, diagramm, STATUS_TEXT } from './dom.js';
+import { symbol, kachel, uebungsArt } from './symbole.js';
+import { tagBewertung } from '../core/bewertung.js';
 import { einheitText } from './tag.js';
 import { minimalAktiv, planTag } from '../core/ziele.js';
 import { neueId, uebungsSchluessel, tagVon } from '../core/state.js';
 import { fmt } from '../core/zahl.js';
 import { uebungsVerlaeufe, vergleich, variante, zuletztSchwer } from '../core/kraft.js';
-import { WT_LANG, wochentag, de, deKurz, deMitTag, istDatum } from '../core/datum.js';
+import { WT_LANG, WT_KURZ, wochentag, wochenTage, montag, de, deKurz, deMitTag, istDatum } from '../core/datum.js';
 
 const enc = encodeURIComponent;
 const CARDIO_ARTEN = ['Laufband', 'Hallenfußball', 'Spaziergang', 'Radfahren', 'Sonstiges'];
@@ -49,6 +51,21 @@ function zielText(u) {
   return `${u.saetze} × ${menge}${u.kg ? ` · ${fmt(u.kg, 1)} kg${u.kg_text ? ` (${u.kg_text})` : ''}` : ''}`;
 }
 
+// ---------- Bausteine für die Gestaltung ----------
+
+const chip = (sym, text, klasse = '') => h('span', { class: `chip ${klasse}`.trim() }, sym ? symbol(sym) : null, text);
+
+/** Sätze × Wiederholungen, Gewicht und Pause einer Plan-Übung als kleine Marken. */
+function zielChips(u) {
+  return h('div', { class: 'chips' },
+    chip('wdh', `${u.saetze} × ${u.sek ? `${u.sek} Sek.` : u.wdh || '?'}`),
+    u.kg ? chip('gewicht', `${fmt(u.kg, 1)} kg${u.kg_text ? ` (${u.kg_text})` : ''}`) : null,
+    chip('uhr', `Pause ${pauseVon(u)} s`),
+  );
+}
+
+const einheitKachel = (t, groesse = '') => kachel(t.typ === 'kraft' ? 'Krafttraining' : t.art, groesse);
+
 // ---------- Steigerung je Übung ----------
 
 const trendMarke = (v) => h('span', { class: `marke s-${v.richtung > 0 ? 'gruen' : v.richtung < 0 ? 'gelb' : 'grau'}` }, `${v.richtung > 0 ? '↑' : v.richtung < 0 ? '↓' : '='} ${v.text}`);
@@ -62,10 +79,11 @@ export function steigerungKarte() {
       const vor = v.eintraege.at(-2);
       const erste = v.eintraege[0];
       return h('a', { href: `#training/uebung/${enc(v.key)}` },
+        kachel(v.name, 'klein'),
         h('span', { class: 'wachs' }, h('b', null, v.name),
           h('div', { class: 'klein' }, `${satzText(l.saetze)} · ${deKurz(l.datum)}`),
           v.eintraege.length > 2 ? h('div', { class: 'klein' }, `seit ${deKurz(erste.datum)}: ${vergleich(erste, l).text}`) : null),
-        vor ? trendMarke(vergleich(vor, l)) : h('span', { class: 'marke neutral' }, 'erster Eintrag'),
+        vor ? trendMarke(vergleich(vor, l)) : h('span', { class: 'marke neutral' }, 'neu'),
         h('span', { class: 'pfeil' }, '›'));
     })) : h('p', { class: 'leer' }, 'Noch keine Krafteinheiten. Nach dem ersten Training erscheint hier jede Übung mit Gewicht und Wiederholungen.'),
     verlaeufe.length ? h('p', { class: 'klein abstand' }, 'Die Marke zeigt die Veränderung zur vorherigen Einheit. Tippe auf eine Übung für den ganzen Verlauf.') : null,
@@ -74,50 +92,86 @@ export function steigerungKarte() {
 
 // ---------- Übersicht ----------
 
+/** Die laufende Woche als Leiste: je Tag Symbol des Plans, Farbe = Status des Bereichs Training. */
+function wochenLeiste(d) {
+  return h('div', { class: 'woche' }, wochenTage(montag(d)).map((tag, i) => {
+    const b = tagBewertung(S.state, tag, d);
+    const p = b.plan;
+    const sym = !p ? 'ruhe' : p.typ === 'laufband' ? 'laufen' : p.typ === 'fussball' ? 'ball' : 'hantel';
+    const kurz = !p ? 'frei' : p.typ === 'laufband' ? `${p.minuten || 30}′` : p.typ === 'fussball' ? 'Spiel' : `${(p.einheit || '').replace(/^Kraft\s+/i, '')}${p.typ === 'bonus' ? '+' : ''}`;
+    return h('a', { class: `wtag s-${b.training}${tag === d ? ' heute' : ''}`, href: `#tag/${tag}`, 'aria-label': `${WT_LANG[i]}: ${p ? p.text || p.typ : 'kein Trainingsziel'}, ${STATUS_TEXT[b.training]}` },
+      h('span', { class: 'wt' }, WT_KURZ[i]),
+      symbol(sym),
+      h('span', { class: 'wk' }, kurz),
+      b.zusatz ? h('span', { class: 'wstern' }, '★') : null,
+    );
+  }));
+}
+
+/** Große Karte einer Kraft-Einheit: Buchstabe, Eckdaten und die Symbole ihrer Übungen. */
+function einheitKarte(name, d) {
+  const liste = S.state.einstellungen.plan.einheiten[name];
+  const p = planTag(S.state.einstellungen, d);
+  const dran = !!p && (p.typ === 'kraft' || p.typ === 'bonus') && p.einheit === name;
+  const letzte = sortiert().find((t) => t.typ === 'kraft' && t.einheit === name);
+  const laeuft = !!S.entwurf && S.entwurf.einheit === name;
+  const m = name.match(/^Kraft\s+(\S)/i);
+  return h('a', { class: `ekarte${dran ? ' dran' : ''}`, href: `#training/start/${enc(name)}${laeuft ? `/${S.entwurf.datum}` : ''}` },
+    h('div', { class: 'zeile' },
+      h('span', { class: 'ebuchstabe' }, (m ? m[1] : name.slice(0, 1)).toUpperCase()),
+      h('div', { class: 'wachs' }, h('b', null, name), h('div', { class: 'klein' }, `${liste.length} Übungen · ${letzte ? `zuletzt ${deKurz(letzte.datum)}` : 'noch nie trainiert'}`)),
+      laeuft ? h('span', { class: 'marke s-gelb' }, 'läuft') : dran ? h('span', { class: 'marke akzent' }, 'heute dran') : null,
+      h('span', { class: 'pfeil' }, '›'),
+    ),
+    h('div', { class: 'esymbole' }, liste.map((u) => kachel(u.name, 'klein'))),
+  );
+}
+
 function uebersicht() {
   const st = S.state;
   const d = heuteIso();
   const e = st.einstellungen;
-  const wp = e.plan.wochenplan;
-  const heuteWt = wochentag(d);
   const minimal = minimalAktiv(e, d);
   const einheiten = Object.keys(e.plan.einheiten);
-  const letzte = sortiert().slice(0, 8);
+  const letzte = sortiert().slice(0, 6);
+  const heutePlan = planTag(e, d);
 
   const knoten = h('div', null,
     S.entwurf ? h('a', { class: 'hinweis info', href: `#training/start/${enc(S.entwurf.einheit)}/${S.entwurf.datum}` }, `Laufendes Training: ${S.entwurf.einheit}`, h('small', null, 'Tippe hier, um fortzusetzen.')) : null,
-    karte('Wochenplan',
-      minimal ? h('p', { class: 'klein', style: 'margin-bottom:6px' }, `Minimalversion aktiv: Kraft an den Pflichttagen je ${e.minimalKraft.minuten} Min. (erste ${e.minimalKraft.uebungen} Übungen), Laufband ohne Wertung.`) : null,
-      h('ul', { class: 'liste' }, [1, 2, 3, 4, 5, 6, 7].map((wt) => h('li', { style: wt === heuteWt ? 'font-weight:700' : '' },
-        h('span', { style: 'width:34px;flex:none;color:var(--text2)' }, WT_LANG[wt - 1].slice(0, 2)),
-        h('span', { class: 'wachs' }, (wp[wt] && wp[wt].text) || 'Kein Trainingsziel'),
-        wt === heuteWt ? h('span', { class: 'marke neutral' }, 'heute') : null,
-      ))),
+    h('section', { class: 'karte' },
+      h('h2', null, 'Diese Woche', h('span', { class: 'rechts' }, heutePlan ? `heute: ${heutePlan.text || heutePlan.einheit || ''}` : 'heute frei')),
+      wochenLeiste(d),
+      minimal ? h('p', { class: 'klein abstand' }, `Minimalversion aktiv: Kraft an den Pflichttagen je ${e.minimalKraft.minuten} Min. (erste ${e.minimalKraft.uebungen} Übungen), Laufband ohne Wertung.`) : null,
     ),
-    karte('Krafttraining (erst Übersicht, dann Start)', h('div', { class: 'knopfreihe' }, einheiten.map((n) => h('a', { class: 'knopf haupt', href: `#training/start/${enc(n)}` }, n)))),
-    karte('Cardio eintragen', h('div', { class: 'knopfreihe' }, CARDIO_ARTEN.slice(0, 3).map((a) => h('a', { class: 'knopf', href: `#training/cardio/${enc(a)}/${d}` }, a)))),
+    h('h2', { class: 'abschnitt' }, 'Krafttraining'),
+    einheiten.map((n) => einheitKarte(n, d)),
+    h('h2', { class: 'abschnitt' }, 'Cardio eintragen'),
+    h('div', { class: 'kacheln3' }, CARDIO_ARTEN.slice(0, 3).map((a) => h('a', { class: 'ckachel', href: `#training/cardio/${enc(a)}/${d}` }, kachel(a), h('span', null, a)))),
+    steigerungKarte(),
+    karte('Letzte Einheiten',
+      letzte.length ? h('div', { class: 'liste' }, letzte.map(einheitZeile)) : h('p', { class: 'leer' }, 'Noch keine Einheiten'),
+      st.trainings.length > 6 ? h('a', { class: 'knopf schmal breit abstand', href: '#training/liste' }, `Alle ${st.trainings.length} Einheiten`) : null,
+    ),
     karte('Einheiten im Plan',
       einheiten.map((n) => h('details', null, h('summary', null, n),
-        h('table', { class: 'tabelle' }, h('tbody', null, e.plan.einheiten[n].map((u) => h('tr', null,
-          h('td', null, u.name, u.notiz ? h('div', { class: 'klein' }, u.notiz) : null, u.schwer && u.schwer.name ? h('div', { class: 'klein' }, `↑ anspruchsvoller: ${u.schwer.name}`) : null),
-          h('td', { class: 'r', style: 'white-space:nowrap' }, zielText(u), h('div', { class: 'klein' }, `Pause ${pauseVon(u)} Sek.`)),
-        )))),
+        h('div', { class: 'liste' }, e.plan.einheiten[n].map((u) => h('li', { class: 'planzeile' },
+          kachel(u.name, 'klein'),
+          h('span', { class: 'wachs' }, h('b', null, u.name), zielChips(u),
+            u.schwer && u.schwer.name ? h('div', { class: 'klein' }, `↑ anspruchsvoller: ${u.schwer.name}`) : null),
+        ))),
       )),
       e.plan.progression ? h('p', { class: 'klein abstand' }, `Steigerung: ${e.plan.progression}`) : null,
       h('a', { class: 'knopf schmal breit abstand', href: '#mehr/plan' }, 'Trainingsplan bearbeiten'),
     ),
-    karte('Letzte Einheiten',
-      letzte.length ? h('div', { class: 'liste' }, letzte.map(einheitZeile)) : h('p', { class: 'leer' }, 'Noch keine Einheiten'),
-      st.trainings.length > 8 ? h('a', { class: 'knopf schmal breit abstand', href: '#training/liste' }, `Alle ${st.trainings.length} Einheiten`) : null,
-    ),
-    steigerungKarte(),
   );
   return { titel: 'Training', knoten };
 }
 
 const einheitZeile = (t) => h('a', { href: `#training/einheit/${t.id}` },
-  h('span', { style: 'width:92px;flex:none;color:var(--text2);font-size:14px' }, `${WT_LANG[wochentag(t.datum) - 1].slice(0, 2)}, ${deKurz(t.datum)}`),
-  h('span', { class: 'wachs' }, einheitText(t)), h('span', { class: 'pfeil' }, '›'));
+  einheitKachel(t, 'klein'),
+  h('span', { class: 'wachs' }, h('b', null, t.typ === 'kraft' ? t.einheit : t.art),
+    h('div', { class: 'klein' }, `${WT_LANG[wochentag(t.datum) - 1].slice(0, 2)}, ${deKurz(t.datum)}${t.dauer_min ? ` · ${t.dauer_min} Min.` : ''}${t.km ? ` · ${fmt(t.km, 2)} km` : ''}${t.verkuerzt ? ' · verkürzt' : ''}`)),
+  h('span', { class: 'pfeil' }, '›'));
 
 function listeScreen() {
   const alle = sortiert();
@@ -152,6 +206,7 @@ function entwurfUebung(planUebung, datum, schwer) {
   }
   return {
     name: u.name, zeit, planNotiz: u.notiz || '', ziel: zielText(u),
+    satzZiel: `${u.saetze} × ${u.sek ? `${u.sek} Sek.` : u.wdh || '?'}`, kgZiel: u.kg ? `${fmt(u.kg, 1)} kg` : '',
     basis: planUebung.name, schwer: u.name !== planUebung.name, hatSchwer: !!(planUebung.schwer && planUebung.schwer.name),
     letzte: letzteZeile(u.name, datum),
     hinweis, notiz: '', pauseSek: pauseVon(u),
@@ -192,24 +247,32 @@ function vorbereitung(einheit, datum) {
     neu();
     window.scrollTo(0, 0);
   };
-  const startKnopf = () => h('button', { type: 'button', class: 'knopf haupt breit', onclick: starte }, live ? 'Training starten' : 'Sätze eintragen');
+  const startKnopf = () => h('button', { type: 'button', class: 'knopf haupt breit gross', onclick: starte }, symbol('start'), live ? 'Training starten' : 'Sätze eintragen');
+  const saetze = liste.reduce((n, u) => n + (variante(u, false).saetze || 0), 0);
   const knoten = h('div', null,
-    h('div', { class: 'hinweis ruhig' }, h('b', null, live ? 'Noch läuft keine Zeit' : `Nachtrag für ${deMitTag(datum)}`),
-      h('small', null, live ? `Sieh dir die Übungen an und wähle die Version. Die Zeit (max. ${maxMin} Min.) beginnt erst mit „Training starten“.` : 'Wähle die Versionen, die du gemacht hast.'),
-      gekuerzt ? h('small', null, `Minimalversion: nur die ersten ${liste.length} Übungen.`) : null),
-    h('div', { style: 'margin-bottom:12px' }, startKnopf()),
+    h('section', { class: 'karte auftakt' },
+      h('div', { class: 'esymbole' }, liste.map((u, i) => kachel(variante(u, vorb.wahl[i]).name, 'klein'))),
+      h('p', { class: 'auftakt-titel' }, live ? 'Noch läuft keine Zeit' : `Nachtrag für ${deMitTag(datum)}`),
+      h('p', { class: 'klein' }, live ? 'Sieh dir die Übungen an und wähle die Version. Die Zeit beginnt erst mit „Training starten“.' : 'Wähle die Versionen, die du gemacht hast.'),
+      h('div', { class: 'chips', style: 'justify-content:center' }, chip('hantel', `${liste.length} Übungen`), chip('wdh', `${saetze} Sätze`), live ? chip('uhr', `max. ${maxMin} Min.`) : null),
+      gekuerzt ? h('p', { class: 'klein' }, `Minimalversion: nur die ersten ${liste.length} Übungen.`) : null,
+      h('div', { class: 'abstand' }, startKnopf()),
+    ),
     liste.map((planUebung, i) => {
       const u = variante(planUebung, vorb.wahl[i]);
       const hat = !!(planUebung.schwer && planUebung.schwer.name);
-      return h('section', { class: 'karte' },
-        h('h2', null, `${i + 1}. ${u.name}`),
-        hat ? h('p', null, h('span', { class: `marke ${vorb.wahl[i] ? 's-gelb' : 'neutral'}` }, vorb.wahl[i] ? 'Anspruchsvolle Version' : 'Einfache Version')) : null,
-        h('p', { class: 'fett' }, zielText(u)),
-        h('p', { class: 'klein' }, `Pause nach jedem Satz: ${pauseVon(u)} Sek.`),
-        u.notiz ? h('p', { class: 'klein' }, u.notiz) : null,
-        h('p', { class: 'klein' }, letzteZeile(u.name, datum)),
+      return h('section', { class: `karte ukarte k-${uebungsArt(u.name).farbe}` },
+        h('div', { class: 'ukopf' },
+          kachel(u.name, 'gross'),
+          h('div', { class: 'wachs' },
+            h('div', { class: 'unr' }, `Übung ${i + 1} von ${liste.length}${hat ? (vorb.wahl[i] ? ' · anspruchsvoll' : ' · einfach') : ''}`),
+            h('h3', null, u.name)),
+        ),
+        zielChips(u),
+        u.notiz ? h('p', { class: 'klein abstand' }, u.notiz) : null,
+        h('p', { class: 'klein abstand' }, letzteZeile(u.name, datum)),
         hat ? h('button', { type: 'button', class: 'knopf schmal breit abstand', onclick: () => { vorb.wahl[i] = !vorb.wahl[i]; neu(); } },
-          vorb.wahl[i] ? `↓ Einfacher: ${planUebung.name}` : `↑ Anspruchsvoller: ${planUebung.schwer.name}`) : null,
+          symbol(vorb.wahl[i] ? 'pfeilRunter' : 'pfeilHoch'), vorb.wahl[i] ? `Einfacher: ${planUebung.name}` : `Anspruchsvoller: ${planUebung.schwer.name}`) : null,
       );
     }),
     startKnopf(),
@@ -322,11 +385,20 @@ function startScreen(einheit, datumArg) {
     }
     sichern(); tick();
   } }, 'Anhalten');
+  const zeitBalken = h('i');
+  const satzStand = h('span');
+  const zaehleSaetze = () => {
+    const alle = en.uebungen.flatMap((u) => u.saetze);
+    satzStand.textContent = `${alle.filter((x) => x.fertig).length} von ${alle.length} Sätzen`;
+  };
+  zaehleSaetze();
   const timer = h('div', { class: 'timer', 'data-laeuft': '1' },
     h('div', { class: 'zeile' },
       h('div', { class: 'wachs' }, h('div', { class: 'klein' }, `Einheit (max. ${en.maxMin} Min.)`), zeitEl),
       h('div', { class: 'rechtsb' }, pauseTitel, pauseEl),
     ),
+    h('div', { class: 'tbalken' }, zeitBalken),
+    h('div', { class: 'klein', style: 'text-align:right' }, satzStand),
     h('div', { class: 'knopfreihe', style: 'margin-top:6px' },
       haltKnopf,
       h('button', { type: 'button', class: 'knopf schmal', onclick: abschliessen }, 'Beenden'),
@@ -346,6 +418,7 @@ function startScreen(einheit, datumArg) {
     haltKnopf.classList.toggle('haupt', haelt);
     timer.classList.toggle('angehalten', haelt);
     timer.classList.toggle('ueber', lauf >= en.maxMin * 60000);
+    zeitBalken.style.width = `${Math.min(100, (lauf / (en.maxMin * 60000)) * 100)}%`;
     if (lauf >= en.maxMin * 60000 && !en.zeitGemeldet) { en.zeitGemeldet = true; sichern(); ton(3); }
     if (en.pauseBis) {
       const rest = en.pauseBis - jetzt;
@@ -374,6 +447,8 @@ function startScreen(einheit, datumArg) {
 
   const uebungKarte = (u) => {
     const zeilen = h('div');
+    const pips = h('div', { class: 'pips' });
+    const zeichnePips = () => { pips.replaceChildren(...u.saetze.map((x) => h('i', { class: x.fertig ? 'an' : '' }))); zaehleSaetze(); };
     const zeichne = () => zeilen.replaceChildren(
       h('div', { class: `satz ${u.zeit ? 'zeit' : ''}` }, h('span'), u.zeit ? h('span', { class: 'satzkopf' }, 'Sekunden') : [h('span', { class: 'satzkopf' }, 'kg'), h('span'), h('span', { class: 'satzkopf' }, 'Wdh.')], h('span')),
       ...u.saetze.map((x, i) => {
@@ -385,32 +460,38 @@ function startScreen(einheit, datumArg) {
           h('button', { type: 'button', class: 'ok', 'aria-label': `Satz ${i + 1} bestätigen`, onclick: () => {
             x.fertig = !x.fertig;
             zeile.classList.toggle('fertig', x.fertig);
+            zeichnePips();
             if (x.fertig && live && !en.angehaltenSeit) { tonBereit(); startePause(u.pauseSek ?? standardPause()); tick(); }
             sichern();
-          } }, '✓'),
+          } }, symbol('haken')),
         );
         return zeile;
       }),
     );
     zeichne();
-    return h('section', { class: 'karte' },
-      h('h2', null, u.name),
-      u.hatSchwer ? h('p', null, h('span', { class: `marke ${u.schwer ? 's-gelb' : 'neutral'}` }, u.schwer ? 'Anspruchsvolle Version' : 'Einfache Version')) : null,
-      h('p', { class: 'fett' }, `Ziel heute: ${u.ziel}`),
-      h('p', null, h('span', { class: 'marke neutral' }, `Pause nach jedem Satz: ${u.pauseSek ?? standardPause()} Sek.`)),
-      u.planNotiz ? h('p', { class: 'klein' }, u.planNotiz) : null,
-      h('p', { class: 'klein' }, u.letzte),
+    zeichnePips();
+    return h('section', { class: `karte ukarte k-${uebungsArt(u.name).farbe}` },
+      h('div', { class: 'ukopf' },
+        kachel(u.name, 'gross'),
+        h('div', { class: 'wachs' },
+          h('div', { class: 'unr' }, `Übung ${en.uebungen.indexOf(u) + 1} von ${en.uebungen.length}${u.hatSchwer ? (u.schwer ? ' · anspruchsvoll' : ' · einfach') : ''}`),
+          h('h3', null, u.name)),
+        pips,
+      ),
+      h('div', { class: 'chips' }, chip('wdh', u.satzZiel || u.ziel), u.kgZiel ? chip('gewicht', u.kgZiel) : null, chip('uhr', `Pause ${u.pauseSek ?? standardPause()} s`)),
+      u.planNotiz ? h('p', { class: 'klein abstand' }, u.planNotiz) : null,
+      h('p', { class: 'klein abstand' }, u.letzte),
       u.hinweis ? h('p', { class: 'klein', style: 'color:var(--gruen);font-weight:600' }, u.hinweis) : null,
       h('div', { class: 'abstand' }, zeilen),
       h('div', { class: 'knopfreihe', style: 'margin-bottom:8px' },
-        h('button', { type: 'button', class: 'knopf schmal', onclick: () => { const l = u.saetze.at(-1) || {}; u.saetze.push({ ...l, fertig: false }); sichern(); zeichne(); } }, '+ Satz'),
-        h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (u.saetze.length > 1) { u.saetze.pop(); sichern(); zeichne(); } } }, '− Satz'),
+        h('button', { type: 'button', class: 'knopf schmal', onclick: () => { const l = u.saetze.at(-1) || {}; u.saetze.push({ ...l, fertig: false }); sichern(); zeichne(); zeichnePips(); } }, '+ Satz'),
+        h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (u.saetze.length > 1) { u.saetze.pop(); sichern(); zeichne(); zeichnePips(); } } }, '− Satz'),
       ),
       textFeld({ platzhalter: 'Notiz (Tempo, Technik …)', wert: u.notiz, onChange: (v) => { u.notiz = v; sichern(); } }),
       u.hatSchwer ? h('button', { type: 'button', class: 'knopf schmal breit abstand', onclick: () => {
         if (u.saetze.some((x) => x.fertig) && !confirm('Für diese Übung sind schon Sätze bestätigt. Beim Wechsel der Version gehen sie verloren. Trotzdem wechseln?')) return;
         wechsleVersion(u);
-      } }, u.schwer ? `↓ Zur einfachen Version: ${u.basis}` : '↑ Zur anspruchsvolleren Version') : null,
+      } }, symbol(u.schwer ? 'pfeilRunter' : 'pfeilHoch'), u.schwer ? `Zur einfachen Version: ${u.basis}` : 'Zur anspruchsvolleren Version') : null,
     );
   };
 
@@ -449,7 +530,10 @@ function cardioScreen(artArg, datumArg) {
   const f = { art: CARDIO_ARTEN.includes(artArg) ? artArg : 'Laufband', datum: istDatum(datumArg) ? datumArg : heuteIso(), dauer_min: null, km: null, notiz: '' };
   const artWahl = h('select', { onchange: () => { f.art = artWahl.value; } }, CARDIO_ARTEN.map((a) => h('option', { value: a }, a)));
   artWahl.value = f.art;
+  const bild = h('div', { style: 'text-align:center;margin-bottom:10px' }, kachel(f.art, 'gross'));
+  artWahl.addEventListener('change', () => bild.replaceChildren(kachel(artWahl.value, 'gross')));
   const knoten = karte('Cardio eintragen',
+    bild,
     h('label', { class: 'feld' }, h('span', null, 'Art'), artWahl),
     datumFeld({ label: 'Datum', wert: f.datum, onChange: (v) => { f.datum = v; } }),
     h('div', { class: 'raster2' },
@@ -487,13 +571,13 @@ function einheitScreen(id) {
   };
   const knoten = h('div', null,
     karte(deMitTag(t.datum),
-      h('p', { class: 'fett' }, einheitText(t)),
+      h('div', { class: 'ukopf' }, einheitKachel(t, 'gross'), h('h3', { class: 'wachs' }, einheitText(t))),
       t.notiz ? h('p', { class: 'klein abstand' }, t.notiz) : null,
       h('a', { class: 'knopf schmal breit abstand', href: `#tag/${t.datum}` }, 'Zum Tag'),
     ),
     t.typ === 'kraft'
-      ? (t.uebungen || []).map((u) => h('section', { class: 'karte' },
-        h('h2', null, h('a', { href: `#training/uebung/${enc(uebungsSchluessel(u.name))}` }, `${u.name} ›`)),
+      ? (t.uebungen || []).map((u) => h('section', { class: `karte ukarte k-${uebungsArt(u.name).farbe}` },
+        h('a', { class: 'ukopf', style: 'color:inherit;margin-bottom:8px', href: `#training/uebung/${enc(uebungsSchluessel(u.name))}` }, kachel(u.name), h('h3', { class: 'wachs' }, u.name), h('span', { class: 'pfeil', style: 'color:var(--text2);font-size:20px' }, '›')),
         u.saetze && u.saetze.length ? h('p', { class: 'fett' }, satzText(u.saetze)) : null,
         (() => {
           // Vergleich mit der vorherigen Einheit, in der diese Übung vorkam
@@ -526,7 +610,7 @@ function uebungScreen(key) {
   const einheit = art === 'kg' ? 'kg × Wdh. (bester Satz je Einheit)' : art === 'wdh' ? 'Wiederholungen (bester Satz)' : 'Sekunden (bester Satz)';
 
   const knoten = h('div', null,
-    karte('Bestwert', h('p', { style: 'font-size:26px;font-weight:700' }, text(best.satz)), h('p', { class: 'klein' }, `am ${de(best.e.datum)}`)),
+    h('section', { class: `karte ukarte k-${uebungsArt(name).farbe}` }, h('div', { class: 'ukopf' }, kachel(name, 'gross'), h('div', { class: 'wachs' }, h('div', { class: 'unr' }, 'Bestwert'), h('div', { style: 'font-size:26px;font-weight:700;line-height:1.1' }, text(best.satz)), h('div', { class: 'klein' }, `am ${de(best.e.datum)}`)))),
     eintraege.length > 1 ? karte('Seit dem ersten Eintrag', h('p', { class: 'zeile' }, h('span', { class: 'wachs' }, `${satzText(eintraege[0].saetze)} → ${satzText(eintraege.at(-1).saetze)}`), trendMarke(vergleich(eintraege[0], eintraege.at(-1))))) : null,
     art === 'kg' ? karte('Gewicht', diagramm({ einheit: 'kg (schwerster Satz je Einheit)', stellen: 1, serien: [{ klasse: 'c2', radius: 4, punkte: eintraege.map((e) => ({ x: e.datum, y: e.maxKg })) }] })) : null,
     art !== 'sek' ? karte('Wiederholungen', diagramm({ einheit: 'Wiederholungen (alle Sätze zusammen)', yMin: 0, serien: [{ klasse: 'c3', radius: 4, punkte: eintraege.map((e) => ({ x: e.datum, y: e.wdhSumme })) }] })) : null,

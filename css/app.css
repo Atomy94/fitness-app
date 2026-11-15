@@ -221,3 +221,95 @@ pre.block { white-space: pre-wrap; word-break: break-word; font: 12px/1.4 ui-mon
   opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; max-width: 90vw; text-align: center;
 }
 #toast.an { opacity: 1; }
+
+/* ---------- Symbole und Farbgruppen der Übungen ---------- */
+/* Jede Gruppe hat eine eigene Farbe; bewusst kein Grün/Gelb/Rot, das bleibt dem Status vorbehalten. */
+.k-druecken { --k: #2f6fed; } .k-ziehen { --k: #0e9f8e; } .k-schulter { --k: #8b5cf6; }
+.k-beine { --k: #f2791f; } .k-rueckseite { --k: #c2410c; } .k-rumpf { --k: #db2777; }
+.k-cardio { --k: #0284c7; } .k-kraft { --k: #475569; }
+@media (prefers-color-scheme: dark) {
+  .k-druecken { --k: #7aa8ff; } .k-ziehen { --k: #3fd0bf; } .k-schulter { --k: #b79cff; }
+  .k-beine { --k: #ffa05c; } .k-rueckseite { --k: #f08a5d; } .k-rumpf { --k: #ff7eb3; }
+  .k-cardio { --k: #5cc4f5; } .k-kraft { --k: #a8b3c4; }
+}
+.sym { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.kachel {
+  display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: 12px;
+  color: var(--k, var(--akzent)); background: var(--feld);
+  background: color-mix(in srgb, var(--k, var(--akzent)) 15%, transparent);
+}
+.kachel .sym { width: 26px; height: 26px; }
+.kachel.klein { width: 32px; height: 32px; border-radius: 9px; }
+.kachel.klein .sym { width: 19px; height: 19px; }
+.kachel.gross { width: 56px; height: 56px; border-radius: 16px; }
+.kachel.gross .sym { width: 34px; height: 34px; stroke-width: 1.7; }
+
+/* ---------- Training: Gestaltung ---------- */
+.abschnitt { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text2); margin: 18px 4px 8px; }
+.knopf .sym { width: 20px; height: 20px; }
+.knopf.gross { min-height: 56px; font-size: 17px; border-radius: 14px; }
+.marke.akzent { background: var(--akzent); border-color: var(--akzent); color: var(--akzent-text); }
+
+/* Marken mit Symbol (Sätze, Gewicht, Pause) */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; background: var(--feld); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.chip .sym { width: 15px; height: 15px; color: var(--text2); stroke-width: 2; }
+
+/* Wochenleiste: Farbe = Status des Trainings an diesem Tag */
+.woche { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.wtag {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 0 6px;
+  border-radius: 12px; border: 1.5px solid var(--rand); background: var(--feld); color: var(--text2);
+}
+.wtag .wt { font-size: 11px; font-weight: 600; }
+.wtag .wk { font-size: 11px; font-weight: 700; line-height: 1; }
+.wtag .sym { width: 22px; height: 22px; }
+.wtag.s-gruen, .wtag.s-gelb, .wtag.s-rot { background: var(--sb); border-color: var(--s); color: var(--text); }
+.wtag.s-gruen .sym, .wtag.s-gelb .sym, .wtag.s-rot .sym { color: var(--s); }
+.wtag.s-offen { border-color: var(--akzent); border-style: dashed; color: var(--text); }
+.wtag.s-offen .sym { color: var(--akzent); }
+.wtag.heute { box-shadow: 0 0 0 2px var(--akzent); border-color: var(--akzent); }
+.wtag .wstern { position: absolute; top: 1px; right: 4px; font-size: 10px; color: var(--text); }
+
+/* Karten der Kraft-Einheiten */
+.ekarte { display: block; background: var(--karte); border: 1px solid var(--rand); border-radius: 16px; padding: 14px; margin-bottom: 10px; color: var(--text); }
+.ekarte.dran { border-color: var(--akzent); box-shadow: 0 0 0 1px var(--akzent); }
+.ekarte b { font-size: 17px; }
+.ebuchstabe {
+  display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 14px; flex: none;
+  font-size: 22px; font-weight: 800; color: var(--akzent-text); background: var(--akzent);
+  background: linear-gradient(135deg, var(--akzent), color-mix(in srgb, var(--akzent) 55%, #8b5cf6));
+}
+.esymbole { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+
+/* Cardio-Kacheln */
+.kacheln3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.ckachel { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 4px 12px; border-radius: 16px; background: var(--karte); border: 1px solid var(--rand); color: var(--text); font-size: 13px; font-weight: 600; text-align: center; }
+
+.planzeile { align-items: flex-start !important; }
+.planzeile .chips { margin-top: 4px; }
+
+/* Auftakt vor dem Start */
+.auftakt { text-align: center; }
+.auftakt .esymbole { justify-content: center; margin: 0 0 10px; }
+.auftakt-titel { font-size: 20px; font-weight: 700; margin-bottom: 2px; }
+
+/* Übungskarte: farbiger Rand in der Farbe der Übungsgruppe */
+.ukarte { border-left: 4px solid var(--k, var(--akzent)); }
+.ukopf { display: flex; align-items: center; gap: 12px; }
+.ukopf h3 { font-size: 18px; line-height: 1.2; }
+.unr { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--k, var(--text2)); margin-bottom: 1px; }
+.pips { display: flex; gap: 4px; flex: none; }
+.pips i { width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--grau); }
+.pips i.an { background: var(--gruen); border-color: var(--gruen); }
+
+/* Timer: Zeitbalken und Akzent */
+.timer { border-top: 3px solid var(--akzent); }
+.timer.angehalten { border-top-color: var(--gelb); }
+.tbalken { height: 6px; border-radius: 3px; background: var(--grau-bg); overflow: hidden; margin: 6px 0 2px; }
+.tbalken i { display: block; height: 100%; width: 0; background: var(--akzent); border-radius: 3px; transition: width .5s linear; }
+.timer.ueber .tbalken i { background: var(--rot); }
+.satz .ok .sym { width: 24px; height: 24px; stroke-width: 2.6; }
+.satz.fertig .ok .sym { color: #fff; }
+
+.bereich { color: var(--text); }
