@@ -100,7 +100,7 @@ Damit Claude deine Daten selbst lesen und neue Einträge ablegen kann, verbindes
 **Einmalig am Computer:**
 
 1. Öffne `https://www.dropbox.com/developers/apps` und melde dich an.
-2. **Create app** → **Scoped access** → **App folder** → Namen vergeben (z. B. `FitnessApp-Jonathan`) → **Create app**.
+2. **Create app** → **Scoped access** → **App folder** → Namen vergeben (z. B. `FitnessApp-DeinName`) → **Create app**.
 3. Reiter **Permissions**: `files.metadata.read`, `files.content.read` und `files.content.write` ankreuzen → unten **Submit**.
 4. Reiter **Settings**: den **App key** kopieren.
 

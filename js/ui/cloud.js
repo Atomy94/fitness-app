@@ -22,7 +22,7 @@ function einrichten() {
     schritt(1, 'Dropbox-App anlegen (einmalig, am Computer)',
       h('ol', { style: 'margin:0;padding-left:20px;line-height:1.6' },
         h('li', null, 'dropbox.com/developers/apps öffnen und „Create app“ wählen.'),
-        h('li', null, '„Scoped access“ und „App folder“ auswählen, einen Namen vergeben (z. B. FitnessApp-Jonathan) und anlegen.'),
+        h('li', null, '„Scoped access“ und „App folder“ auswählen, einen Namen vergeben (z. B. FitnessApp-DeinName) und anlegen.'),
         h('li', null, 'Reiter „Permissions“: files.metadata.read, files.content.read und files.content.write ankreuzen, unten „Submit“.'),
         h('li', null, 'Reiter „Settings“: den „App key“ kopieren.'),
       )),
