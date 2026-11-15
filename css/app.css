@@ -53,7 +53,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .karte { background: var(--karte); border: 1px solid var(--rand); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
 .karte > h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text2); margin-bottom: 10px; }
-.karte > h2 .rechts { float: right; text-transform: none; letter-spacing: 0; font-weight: 400; }
+/* Kein "float" in Kartenköpfen: ein Raster darunter würde neben dem Text zusammengequetscht. */
 .klein { font-size: 13px; color: var(--text2); }
 .leer { color: var(--text2); text-align: center; padding: 18px 0; }
 .zeile { display: flex; align-items: center; gap: 10px; }
@@ -256,7 +256,7 @@ pre.block { white-space: pre-wrap; word-break: break-word; font: 12px/1.4 ui-mon
 .chip .sym { width: 15px; height: 15px; color: var(--text2); stroke-width: 2; }
 
 /* Wochenleiste: Farbe = Status des Trainings an diesem Tag */
-.woche { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.woche { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; width: 100%; clear: both; }
 .wtag {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 0 6px;
   border-radius: 12px; border: 1.5px solid var(--rand); background: var(--feld); color: var(--text2);
