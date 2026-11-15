@@ -15,7 +15,7 @@ Voraussetzung: Node.js ist installiert.
 3. Tippe:
 
    ```
-   npm start
+   node tools/server.mjs
    ```
 
 4. Öffne im Browser `http://localhost:5173`.
@@ -23,7 +23,9 @@ Voraussetzung: Node.js ist installiert.
 
 Tipp: Unter **Mehr → Daten → Testdaten anzeigen** siehst du drei Wochen erfundene Werte.
 
-Automatische Tests laufen mit `npm test`.
+Automatische Tests laufen mit `node --test "tests/*.test.mjs"`.
+
+Hinweis: `npm start` und `npm test` tun dasselbe, werden in der Windows PowerShell aber oft mit der Meldung „Ausführung von Skripts ist deaktiviert“ blockiert. Die Befehle mit `node` funktionieren immer.
 
 ---
 
