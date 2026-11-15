@@ -5,12 +5,14 @@ import { h, karte, zahlFeld, textFeld, datumFeld, diagramm, kopiere, marke } fro
 import { importiereHealthData, dateiKnopf } from './heute.js';
 import { VERSION } from '../version.js';
 import { wochenWerte, checkinZeilen, checkinText } from '../core/checkin.js';
-import { wochenWertung } from '../core/bewertung.js';
-import { leseImport, verarbeite, FELD_NAMEN } from '../core/import.js';
+import { leseImport } from '../core/import.js';
+import { vorschauKarte } from './vorschau.js';
+import { exportText } from '../core/claude-dateien.js';
+import { istVerbunden } from '../cloud.js';
 import { ZIEL_INFO, zielWert, zielVerlauf, setzeZiel, minimalAktiv } from '../core/ziele.js';
 import { SAMMLUNGEN, neueId } from '../core/state.js';
 import { fmt } from '../core/zahl.js';
-import { de, deKurz, montag, plusTage, kw, WT_LANG, istDatum } from '../core/datum.js';
+import { de, deKurz, montag, plusTage, WT_LANG, istDatum } from '../core/datum.js';
 
 const zurueck = 'mehr';
 const blur = () => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); };
@@ -23,6 +25,7 @@ function menue() {
     karte(null, h('div', { class: 'liste' },
       punkt('#rezepte', 'Rezepte', 'Frühstück, Mittagessen, Abendessen, Snacks mit Mengen und Nährwerten'),
       punkt('checkin', 'Wochen-Check-in', 'Wochenwerte ansehen und für Claude kopieren'),
+      punkt('#cloud', 'Claude-Verbindung (Dropbox)', istVerbunden() ? 'Verbunden – Claude kann lesen und Einträge ablegen' : 'Einrichten, damit Claude selbst lesen und ablegen kann'),
       punkt('import', 'Von Claude importieren', 'Datenblock „FITNESS-IMPORT v1“ einfügen'),
       punkt('gesundheit', 'Gesundheit', 'Blutwerte und Supplements'),
       punkt('einstellungen', 'Einstellungen', 'Ziele, Grenzwerte, Phasen, Minimalversion'),
@@ -71,9 +74,6 @@ function checkinScreen() {
 // ---------- Claude-Import ----------
 
 const imp = { text: '', ergebnis: null, ersetzen: {} };
-const ART_TEXT = { neu: 'neu', aenderung: 'wird geändert', ersetzt: 'wird ersetzt', gleich: 'unverändert', uebersprungen: 'wird übersprungen' };
-const ART_STATUS = { neu: 'gruen', aenderung: 'gelb', ersetzt: 'gelb', gleich: 'grau', uebersprungen: 'grau' };
-const wertText = (v) => (v === null || v === undefined ? '–' : v === true ? 'ja' : v === false ? 'nein' : typeof v === 'number' ? fmt(v, 2) : String(v));
 
 function importScreen() {
   const feld = h('textarea', { rows: 8, placeholder: 'FITNESS-IMPORT v1\n{ "eintraege": [ … ] }', style: 'font-family:ui-monospace,Menlo,monospace;font-size:13px;min-height:170px', oninput: () => { imp.text = feld.value; } });
@@ -90,34 +90,18 @@ function importScreen() {
     h('p', { class: 'klein abstand' }, 'Es wird erst gespeichert, wenn du nach der Vorschau auf „Übernehmen“ tippst.'),
   )];
 
-  const r = imp.ergebnis;
-  if (r && !r.ok) {
-    teile.push(h('section', { class: 'karte' }, h('h2', null, 'Import abgelehnt – nichts wurde gespeichert'),
-      h('ul', { style: 'margin:0;padding-left:20px' }, r.fehler.map((f) => h('li', { style: 'margin-bottom:6px' }, f)))));
-  } else if (r && r.ok) {
-    const { state, posten } = verarbeite(S.state, r.eintraege, { ersetzen: imp.ersetzen });
-    const wirksam = posten.filter((p) => p.art !== 'gleich' && p.art !== 'uebersprungen').length;
-    teile.push(h('section', { class: 'karte' }, h('h2', null, `Vorschau: ${posten.length} Einträge, ${wirksam} mit Änderungen`),
-      posten.map((p) => h('div', { class: 'vorschau-posten' },
-        h('div', { class: 'zeile' }, h('b', { class: 'wachs' }, p.titel), h('span', { class: `marke s-${ART_STATUS[p.art]}` }, ART_TEXT[p.art])),
-        p.felder.map((f) => h('div', { class: 'diff' }, `${FELD_NAMEN[f.feld] || f.feld}: `, f.alt === null || f.alt === undefined ? null : [h('s', null, wertText(f.alt)), ' → '], h('b', null, wertText(f.neu)))),
-        p.rueckfrage ? (() => {
-          const box = h('input', { type: 'checkbox', style: 'width:24px;height:24px', onchange: () => { imp.ersetzen[p.index] = box.checked; neu(); } });
-          box.checked = imp.ersetzen[p.index] !== false;
-          return h('label', { class: 'zeile', style: 'min-height:44px;margin-top:4px' }, box, h('span', { class: 'wachs' }, 'Vorhandene Einheit ersetzen'));
-        })() : null,
-      )),
-      r.hinweise.length ? h('div', { class: 'hinweis ruhig abstand' }, h('b', null, 'Hinweise'), r.hinweise.map((t) => h('small', null, t))) : null,
-      h('div', { class: 'knopfreihe abstand' },
-        h('button', { type: 'button', class: 'knopf', onclick: () => { imp.ergebnis = null; neu(); } }, 'Abbrechen'),
-        h('button', { type: 'button', class: 'knopf haupt', disabled: wirksam === 0, onclick: async () => {
-          await setzeState(state);
-          imp.text = ''; imp.ergebnis = null; imp.ersetzen = {};
-          meldung(`${wirksam} Einträge übernommen`);
-          location.hash = '#heute';
-        } }, 'Übernehmen'),
-      ),
-    ));
+  if (imp.ergebnis) {
+    teile.push(vorschauKarte({
+      ergebnis: imp.ergebnis, ersetzen: imp.ersetzen, state: S.state,
+      onWahl: neu,
+      onAbbrechen: () => { imp.ergebnis = null; neu(); },
+      onUebernehmen: async (neuerStand, anzahl) => {
+        await setzeState(neuerStand);
+        imp.text = ''; imp.ergebnis = null; imp.ersetzen = {};
+        meldung(`${anzahl} ${anzahl === 1 ? 'Eintrag' : 'Einträge'} übernommen`);
+        location.hash = '#heute';
+      },
+    }));
   }
   return { titel: 'Von Claude importieren', zurueck, knoten: h('div', null, teile) };
 }
@@ -363,32 +347,6 @@ function planScreen() {
 
 // ---------- Daten ----------
 
-function exportFuerClaude(tageZahl) {
-  const st = S.state;
-  const d = heuteIso();
-  const ab = tageZahl ? plusTage(d, -(tageZahl - 1)) : '0000-00-00';
-  const ziele = Object.fromEntries(Object.keys(ZIEL_INFO).map((k) => [k, zielWert(st.ziele, k, d)]));
-  const wochen = [];
-  for (let mo = montag(d), i = 0; i < 4; i++, mo = plusTage(mo, -7)) {
-    const w = wochenWertung(st, mo, d);
-    if (w.hatDaten) wochen.push({ kw: kw(mo), montag: mo, ernaehrung: `${w.ernaehrung.x}/7`, training: `${w.training.x}/${w.training.von}`, schritte: `${w.schritte.x}/7`, schritte_schnitt: w.schritteSchnitt === null ? null : Math.round(w.schritteSchnitt), kcal_schnitt: w.kcalSchnitt === null ? null : Math.round(w.kcalSchnitt) });
-  }
-  const daten = {
-    erstellt: d, zeitraum: { von: tageZahl ? ab : 'alles', bis: d },
-    minimalversion_heute: minimalAktiv(st.einstellungen, d), ziele_heute: ziele,
-    ziel_aenderungen: st.ziele.filter((z) => z.gueltig_ab !== st.einstellungen.start).map(({ schluessel, gueltig_ab, wert }) => ({ schluessel, gueltig_ab, wert })),
-    wochenplan: Object.fromEntries(Object.entries(st.einstellungen.plan.wochenplan).map(([wt, p]) => [WT_LANG[wt - 1], p.text || p.typ])),
-    einheiten_plan: st.einstellungen.plan.einheiten,
-    wochenwertungen: wochen,
-    tage: Object.values(st.tage).filter((t) => t.datum >= ab).sort((a, b) => (a.datum < b.datum ? -1 : 1)),
-    trainings: st.trainings.filter((t) => t.datum >= ab).sort((a, b) => (a.datum < b.datum ? -1 : 1)).map(({ id, ...rest }) => rest),
-    messungen: st.messungen.map(({ id, ...rest }) => rest),
-    blutwerte: st.blutwerte.map(({ id, ...rest }) => rest),
-    rezepte: (st.rezepte || []).map(({ id, ...rest }) => rest),
-  };
-  return `FITNESS-EXPORT v1 (aus der Fitness-App, ${de(d)})\n${JSON.stringify(daten)}`;
-}
-
 async function sicherungErstellen() {
   const d = heuteIso();
   const daten = {};
@@ -432,7 +390,7 @@ function datenScreen() {
   const d = heuteIso();
   const ls = st.einstellungen.letzteSicherung;
   const demo = S.modus === 'demo';
-  const kopiereExport = async (tage) => { const ok = await kopiere(exportFuerClaude(tage)); meldung(ok ? 'Export kopiert – jetzt in Claude einfügen' : 'Kopieren nicht möglich'); };
+  const kopiereExport = async (tage) => { const ok = await kopiere(exportText(S.state, heuteIso(), tage)); meldung(ok ? 'Export kopiert – jetzt in Claude einfügen' : 'Kopieren nicht möglich'); };
   return { titel: 'Daten', zurueck, knoten: h('div', null,
     demo ? h('div', { class: 'hinweis info' }, 'Testdaten-Modus', h('small', null, 'Alles auf dieser Seite betrifft gerade nur die Testdaten.')) : null,
     karte('Claude',

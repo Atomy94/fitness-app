@@ -91,6 +91,9 @@ function kopfTeil(d) {
     teile.push(h('div', { class: 'hinweis warn' }, 'Laufband heute Abend: Pflicht',
       h('small', null, t.schritte === undefined ? `Noch keine Schritte eingetragen (Grenze: ${fmt(b.ziele.schritte.pflichtGrenze)} bis 15 Uhr).` : `Erst ${fmt(t.schritte)} Schritte (Grenze: ${fmt(b.ziele.schritte.pflichtGrenze)} bis 15 Uhr).`)));
   }
+  if (S.modus === 'echt' && S.eingang.length) {
+    teile.push(h('a', { class: 'hinweis info', href: '#cloud' }, `Claude hat ${S.eingang.length} ${S.eingang.length === 1 ? 'Datei' : 'Dateien'} abgelegt`, h('small', null, 'Tippe hier, um die Vorschau zu sehen und zu übernehmen.')));
+  }
   if (b.minimal) {
     teile.push(h('div', { class: 'hinweis ruhig' }, h('b', null, 'Minimalversion aktiv'), h('small', null, 'Erfolg heißt jetzt: Gewicht und Bauchumfang halten.')));
   }

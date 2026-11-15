@@ -153,7 +153,16 @@ Trainingsplan, Wochenplan und Zeiträume der Minimalversion werden in der App ei
 - Eine Änderung, die alte Blöcke anders auslegen würde, braucht eine neue Kopfzeile (`v2`); `v1` muss weiter gelesen werden.
 - Jedes neue Feld: in `FELDER` und `FELD_NAMEN` (`js/core/import.js`) eintragen, hier dokumentieren, Test ergänzen.
 
+## Übertragung über Dropbox (ab App-Version 1.2)
+
+Ist die App mit Dropbox verbunden (Mehr → Claude-Verbindung), muss nichts mehr kopiert werden:
+
+- Claude legt denselben Block als **neue Textdatei** im App-Ordner unter `eingang/` ab, z. B. `eingang/import-2026-11-15-1930.md`. Der Dateiinhalt ist genau ein Block wie oben.
+- Die App holt die Datei beim nächsten Abgleich ab, zeigt die Vorschau und verschiebt sie nach „Übernehmen“ oder „Verwerfen“ nach `erledigt/`.
+- Die Anleitung für Claude liegt im selben Ordner als `LIESMICH-fuer-Claude.md` (erzeugt von `liesmichDatei()` in `js/core/claude-dateien.js`; ein Test prüft, dass sie alle Typen, Felder und Zielschlüssel nennt).
+
 ## Gegenrichtung
 
 - **Wochen-Check-in → „Für Claude kopieren“:** Text mit allen Wochenwerten plus eine Zeile `JSON:` mit kompaktem JSON der Woche.
+- **Dropbox:** `stand.md` (heute, laufende Woche, letzte 8 Wochen als JSON, alle Wochen als Übersicht), `rezepte.md`, `sicherung/fitness-sicherung.json`.
 - **Mehr → Daten → Export:** Block `FITNESS-EXPORT v1` mit Zielen, Plan, Wochenwertungen, Tagen, Trainings, Messungen und Blutwerten. Die Feldnamen der Tage entsprechen dem Import.

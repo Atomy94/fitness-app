@@ -10,6 +10,8 @@ import { trainingScreen } from './ui/training.js';
 import { fortschrittScreen } from './ui/fortschritt.js';
 import { mehrScreen } from './ui/mehr.js';
 import { rezepteScreen } from './ui/rezepte.js';
+import { cloudScreen } from './ui/cloud.js';
+import { starteAutomatik } from './cloud.js';
 
 // Neuer Bildschirm (z. B. Rezeptrechner)? Modul in js/ui/ anlegen und hier eintragen.
 const SCREENS = {
@@ -20,8 +22,9 @@ const SCREENS = {
   fortschritt: fortschrittScreen,
   mehr: mehrScreen,
   rezepte: rezepteScreen,
+  cloud: cloudScreen,
 };
-const NAV = { tag: 'kalender', rezepte: 'mehr' };
+const NAV = { tag: 'kalender', rezepte: 'mehr', cloud: 'mehr' };
 
 const inhalt = document.getElementById('inhalt');
 const titel = document.getElementById('titel');
@@ -61,7 +64,7 @@ document.addEventListener('visibilitychange', () => {
 
 verbinde({ zeichne, meldung: toast });
 
-laden().then(zeichne).catch((e) => {
+laden().then(() => { zeichne(); starteAutomatik(); }).catch((e) => {
   console.error(e);
   inhalt.replaceChildren(h('div', { class: 'hinweis warn' }, 'Die Daten konnten nicht geladen werden.', h('small', null, `${e && e.message ? e.message : e} – In Safari darf „Privates Surfen“ nicht aktiv sein.`)));
 });

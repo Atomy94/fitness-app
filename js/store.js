@@ -12,6 +12,8 @@ export const S = {
   state: null,
   modus: 'echt', // 'echt' | 'demo'
   entwurf: null, // laufendes Training
+  cloud: null, // Dropbox-Verbindung (nur bei echten Daten; nicht Teil der Sicherung)
+  eingang: [], // von Claude abgelegte Einträge, die auf Bestätigung warten
 };
 
 let neuZeichnen = () => {};
@@ -45,12 +47,23 @@ export async function laden() {
     S.state = ergaenze(state, heuteIso());
   }
   S.entwurf = roh.entwurf || null;
+  S.cloud = (await db.lies(DB_ECHT, ['cloud'])).cloud || null;
   // Bittet den Browser, die Daten nicht von sich aus zu löschen.
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 }
 
+// Wer informiert werden will, wenn sich Daten ändern (der Dropbox-Abgleich).
+let aenderungsHoerer = () => {};
+export function beiAenderung(fn) { aenderungsHoerer = fn; }
+
 /** Speichert die genannten Sammlungen (ohne Angabe: alle). */
 export function speichern(...namen) {
+  aenderungsHoerer();
+  return speichernStill(...namen);
+}
+
+/** Wie speichern(), aber ohne den Abgleich anzustoßen (für Änderungen durch den Abgleich selbst). */
+export function speichernStill(...namen) {
   const liste = namen.length ? namen : SAMMLUNGEN;
   const werte = {};
   for (const n of liste) werte[n] = S.state[n];
@@ -58,6 +71,10 @@ export function speichern(...namen) {
     console.error(e);
     melde('Speichern fehlgeschlagen – bitte App neu öffnen.');
   });
+}
+
+export function speichereCloud() {
+  return db.schreibe(DB_ECHT, { cloud: S.cloud || undefined }).catch((e) => console.error(e));
 }
 
 export function speichereEntwurf() {
@@ -86,5 +103,6 @@ export async function demoZuruecksetzen() {
 export async function allesLoeschen() {
   S.entwurf = null;
   await db.leere(dbName());
+  if (S.modus === 'echt') await speichereCloud(); // die Dropbox-Verbindung bleibt bestehen
   await laden();
 }

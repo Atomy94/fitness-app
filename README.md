@@ -93,6 +93,38 @@ Das Format für Claude steht in `IMPORT-FORMAT.md`.
 
 ---
 
+## 5a. Claude direkt anbinden (Dropbox)
+
+Damit Claude deine Daten selbst lesen und neue Einträge ablegen kann, verbindest du die App einmalig mit deiner Dropbox. Deine Daten liegen dann zusätzlich in einem eigenen Ordner deiner Dropbox.
+
+**Einmalig am Computer:**
+
+1. Öffne `https://www.dropbox.com/developers/apps` und melde dich an.
+2. **Create app** → **Scoped access** → **App folder** → Namen vergeben (z. B. `FitnessApp-Jonathan`) → **Create app**.
+3. Reiter **Permissions**: `files.metadata.read`, `files.content.read` und `files.content.write` ankreuzen → unten **Submit**.
+4. Reiter **Settings**: den **App key** kopieren.
+
+**In der App auf dem iPhone:**
+
+5. **Mehr → Claude-Verbindung (Dropbox)** → App key eintragen → **Weiter**.
+6. **Bei Dropbox anmelden** antippen, Zugriff erlauben, den angezeigten Code kopieren.
+7. Zurück in die App, Code einfügen → **Verbinden**.
+
+**In Claude:**
+
+8. Den Dropbox-Connector aktivieren (Einstellungen → Connectors).
+9. Den Satz aus der App („Satz kopieren“) einmal im Chat einfügen oder dauerhaft in die Projekt-Anweisungen schreiben.
+
+Danach gilt:
+
+- Claude liest deinen Stand aus der Datei `stand.md`. Sie ist so aktuell wie das letzte Öffnen der App.
+- Claude legt neue Einträge im Ordner `eingang` ab. Beim nächsten Öffnen zeigt die App auf „Heute“ einen Hinweis. Du siehst die Vorschau und tippst **Übernehmen**.
+- Die Sicherung landet bei jedem Abgleich automatisch in der Dropbox.
+
+Trennen kannst du die Verbindung jederzeit unter **Mehr → Claude-Verbindung**.
+
+---
+
 ## 6. Daten sichern und wiederherstellen
 
 Die Daten liegen nur auf dem iPhone. Geht das Gerät verloren oder löscht iOS den Speicher, sind sie ohne Sicherung weg.

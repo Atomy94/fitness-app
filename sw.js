@@ -3,7 +3,7 @@
 // UPDATE: VERSION erhöhen (gleich wie in js/version.js). Dann holt sich das iPhone beim
 // nächsten Öffnen alle Dateien neu. Neue Dateien müssen in DATEIEN stehen (ein Test prüft das).
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const CACHE = `fitness-${VERSION}`;
 const DATEIEN = [
   './',
@@ -14,13 +14,16 @@ const DATEIEN = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './js/app.js',
+  './js/cloud.js',
   './js/db.js',
   './js/store.js',
   './js/version.js',
   './js/core/bewertung.js',
   './js/core/checkin.js',
+  './js/core/claude-dateien.js',
   './js/core/datum.js',
   './js/core/demo.js',
+  './js/core/dropbox.js',
   './js/core/erstimport.js',
   './js/core/import.js',
   './js/core/kraft.js',
@@ -28,6 +31,7 @@ const DATEIEN = [
   './js/core/state.js',
   './js/core/zahl.js',
   './js/core/ziele.js',
+  './js/ui/cloud.js',
   './js/ui/dom.js',
   './js/ui/fortschritt.js',
   './js/ui/heute.js',
@@ -36,6 +40,7 @@ const DATEIEN = [
   './js/ui/rezepte.js',
   './js/ui/tag.js',
   './js/ui/training.js',
+  './js/ui/vorschau.js',
 ];
 
 self.addEventListener('install', (e) => {

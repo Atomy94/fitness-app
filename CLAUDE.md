@@ -7,8 +7,9 @@ Entscheidungen selbst und begründe sie kurz. Frag nur, wenn eine Entscheidung d
 ## Was die App ist
 
 - Progressive Web App (PWA) für iPhone/Safari, zum Homescreen hinzugefügt, funktioniert offline.
-- Kein Server, keine Internet-Datenbank, keine kostenpflichtigen Dienste, kein Tracking, keine CDNs, **keine fremden Bibliotheken**.
-- Daten liegen nur auf dem Gerät in IndexedDB. Hosting der Dateien: GitHub Pages.
+- Kein eigener Server, keine Internet-Datenbank, keine kostenpflichtigen Dienste, kein Tracking, keine CDNs, **keine fremden Bibliotheken**.
+- Daten liegen auf dem Gerät in IndexedDB. Hosting der Dateien: GitHub Pages.
+- **Ausnahme auf ausdrücklichen Wunsch des Nutzers (seit 1.2):** optionale Verbindung zur eigenen Dropbox als Schnittstelle zu Claude. Dann liegen Stand, Rezepte und Sicherung zusätzlich im App-Ordner seiner Dropbox. Ohne Verbindung bleibt alles lokal.
 - Essen wird NICHT in der App geloggt. Tageswerte kommen aus Yazio über den Claude-Import.
 - Rezepte (seit 1.1) dienen nur zum Nachschlagen von Mengen und Nährwerten; sie fließen nicht in die Tageswerte ein.
 - Noch nicht enthalten: Rezeptrechner mit Topfgewicht, Übungsbilder, automatische Schritte-Übertragung.
@@ -48,6 +49,7 @@ icons/                  App-Symbole (erzeugt von tools/make-icons.mjs)
 js/app.js               Einstieg, Navigation (#heute, #kalender, #tag/DATUM, #training/…, #fortschritt, #mehr/…)
 js/store.js             Datenstand im Speicher, Speichern, Wechsel echte Daten/Testdaten
 js/db.js                IndexedDB-Hülle
+js/cloud.js             Dropbox-Abgleich: hochladen, Eingang abholen, automatisch beim Öffnen/nach Änderungen
 js/version.js           Versionsnummer
 js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   datum.js              Datum, Wochen, Berlin-Zeit
@@ -58,13 +60,16 @@ js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   import.js             Claude-Import (prüfen, Vorschau, anwenden)
   erstimport.js         health-data.json → App-Stand
   checkin.js            Wochenwerte und Text für Claude
+  dropbox.js            Dropbox-API (OAuth mit PKCE ohne Weiterleitung, Dateien), fetch wird übergeben
+  claude-dateien.js     Inhalte für Claude: stand.md, rezepte.md, LIESMICH-fuer-Claude.md, Sicherung, Export
   rezepte.js            Kategorien, Nährwertfelder, Übernahme aus dem Archiv, Portion aus 100-g-Werten
   kraft.js              Verlauf je Übung (Gewicht × Wdh.), Kennzahlen, Vergleich zur Vorgänger-Einheit
   demo.js               Testdaten (3 Wochen, erfunden)
 js/ui/                  Bildschirme, je ein Modul
   dom.js                Bausteine: h(), Felder, Punkte, Ring, Diagramm (eigenes SVG)
   heute.js  kalender.js  tag.js  training.js  fortschritt.js  mehr.js  rezepte.js (#rezepte, erreichbar über „Mehr“)
-tests/                  node:test – bewertung, import, rezepte-kraft, weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
+  cloud.js (#cloud, Claude-Verbindung)  vorschau.js (Import-Vorschau, von Einfüge-Import und Dropbox-Eingang benutzt)
+tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
 tools/                  server.mjs (Vorschau), make-icons.mjs
 ```
 
@@ -121,6 +126,17 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 - Training mit gleichem Datum und gleicher Einheit ersetzt das vorhandene nach Rückfrage.
 - Unbekannte Felder werden ignoriert und als Hinweis gezeigt.
 - Erweiterungen: nur neue optionale Felder/Typen; sonst neue Kopfzeile `v2`, `v1` bleibt lesbar.
+
+## Claude-Verbindung über Dropbox (seit 1.2)
+
+- **Einrichtung durch den Nutzer:** eigene Dropbox-App (Scoped access, „App folder“, Rechte `files.metadata.read`, `files.content.read`, `files.content.write`), App key in der App eintragen, bei Dropbox anmelden, angezeigten Code einfügen. Kein Redirect, kein Client-Secret.
+- **Gespeichert** wird die Verbindung unter dem Schlüssel `cloud` in der Datenbank `fitness-app` (`appKey, refreshToken, accessToken, ablauf, konto, letzterAbgleich, liesmichVersion, fehler`). Sie ist nicht Teil von Sicherung und Export. Im Testdaten-Modus ist der Abgleich aus.
+- **Ordner** (relativ zum App-Ordner `Apps/<Name>/`): `stand.md`, `rezepte.md`, `LIESMICH-fuer-Claude.md`, `sicherung/fitness-sicherung.json` (App schreibt), `eingang/` (Claude legt Import-Dateien ab), `erledigt/` (App verschiebt Verarbeitetes).
+- **Abgleich** (`abgleichen()`): lädt die vier Dateien hoch, listet `eingang/`, lädt neue Dateien und prüft sie mit `leseImport`. Automatisch 1,5 s nach dem Start, beim Zurückkehren in die App (wenn älter als 2 Min.) und 15 s nach einer Änderung.
+- **Nichts wird automatisch übernommen.** Jede Datei erscheint mit Vorschau unter „Claude-Verbindung“ (Hinweis auf „Heute“); „Übernehmen“ oder „Verwerfen“ verschiebt sie nach `erledigt/`.
+- Der erfolgreiche Abgleich setzt `letzteSicherung` (die Dropbox-Sicherung zählt).
+- `LIESMICH-fuer-Claude.md` wird neu hochgeladen, wenn sich App-Version oder `LIESMICH_VERSION` ändert. Bei Änderungen am Importformat den Text in `liesmichDatei()` anpassen.
+- **Noch nicht gegen die echte Dropbox geprüft** (Stand 15.11.2026): getestet mit nachgebautem fetch in Node und im Browser. Offen: Anmeldung aus der Homescreen-App auf dem iPhone und ob Claudes Dropbox-Connector Dateien in `eingang/` anlegen kann.
 
 ## Training durchführen und Steigerung
 
