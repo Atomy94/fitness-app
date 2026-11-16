@@ -66,6 +66,7 @@ js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   rezepte.js            Kategorien, Nährwertfelder, Übernahme aus dem Archiv, Portion aus 100-g-Werten
   wertung.js            Tages- und Wochenwertung in Prozent (Gewichte und Grenzen aus den Zielen)
   vorschlag.js          Abend-Vorschläge „Für heute noch“ (rein rechnerisch), Startwerte der Snack-Liste
+  signal.js             Zeitplan der Töne am Pausenende
   kraft.js              Verlauf je Übung (Gewicht × Wdh.), Kennzahlen, Vergleich zur Vorgänger-Einheit
   demo.js               Testdaten (3 Wochen, erfunden)
 js/ui/                  Bildschirme, je ein Modul
@@ -202,6 +203,7 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 - **Ablauf (seit 1.4):** Eine Einheit öffnet zuerst eine **Übersicht ohne Zeit** (`vorbereitung()` in `js/ui/training.js`): alle Übungen mit Ziel, Pause und letztem Stand. Erst „Training starten“ legt den Entwurf an und startet die Zeit.
 - **Einfache und anspruchsvolle Version:** Hat eine Plan-Übung `schwer`, gibt es je Übung einen Knopf zum Wechseln (in der Übersicht und im laufenden Training). `variante()` in `js/core/kraft.js` baut die anspruchsvolle Version (erbt Sätze und Pause; Wdh./Sek./kg nur, wenn sie selbst nichts angibt). Vorbelegt wird die zuletzt trainierte Version (`zuletztSchwer()`). Beide Versionen haben eigene Namen und damit getrennte Verläufe unter „Steigerung je Übung“. Pflegbar unter Mehr → Trainingsplan oder per Import (`einheit`, Feld `schwer`).
 - **Pause je Übung:** `pause_sek` im Plan ist die vorgeschriebene Pause nach jedem Satz. Nach ✓ startet der Timer mit genau diesem Wert und zeigt „Soll … Sek.“. Ohne Angabe gilt `einstellungen.pauseSek` (Standard-Pause). Einstellbar unter Mehr → Trainingsplan (Feld „Pause“) oder per Import (`einheit`).
+- **Pausen-Signal (seit 1.12):** bei 3 und 2 Sekunden Restzeit ein kurzer Ton, in der letzten Sekunde ein langer Ton bis zum Pausenende. Der Zeitplan kommt aus `pausenSignal()` (`js/core/signal.js`, getestet); `signalPlanen()` in `js/ui/training.js` plant die Töne beim Start der Pause fest auf der Web-Audio-Uhr ein und plant bei „+15 s“ neu; „Pause aus“, Anhalten und Verlassen brechen ab. Freigeschaltet wird Web Audio beim ersten Tippen im Training (`tonBereit()`), wie iOS es verlangt. Ausgabe über das aktive Gerät (auch Kopfhörer).
 - Timer oben: **Anhalten/Fortsetzen** (ganze Einheit, Zeit steht) und **Beenden** (speichert bestätigte Sätze, fragt bei offenen Sätzen nach). Darunter die Satzpause, die nach jedem ✓ automatisch startet.
 - Jede gespeicherte Einheit hält je Übung alle Sätze mit Gewicht und Wiederholungen fest.
 - **„Steigerung je Übung“** (auf „Training“ und „Fortschritt“): letzter Stand je Übung, Veränderung zur vorherigen Einheit und seit dem ersten Eintrag. Detail je Übung: Bestwert, Diagramme (Gewicht, Wiederholungen, Gewicht × Wdh.), alle Einträge mit Veränderung.
@@ -218,7 +220,7 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 
 ## Bekannte Grenzen
 
-- iOS: Vibration gibt es in Safari nicht; der Timer-Ton funktioniert nur, solange die App im Vordergrund ist.
+- iOS: Vibration gibt es in Safari nicht; der Timer-Ton funktioniert nur, solange die App im Vordergrund ist. Ob der Stummschalter des iPhones die Töne unterdrückt, ist auf dem Gerät nicht geprüft (Stand 16.11.2026).
 - Eine gespeicherte Krafteinheit lässt sich nicht satzweise bearbeiten (löschen und neu eintragen oder per Import ersetzen).
 - Einheiten im Plan können in der App bearbeitet, aber nur per Import (`einheit`) neu angelegt werden; umbenennen und löschen geht nicht. Eine zweite Einheit zur Auswahl lässt sich unter Mehr → Trainingsplan je Wochentag einstellen.
 - „Heute“ zeigt drei Ringe: Kalorien, Eiweiß, Schritte (jeweils gegen das Tagesziel, Farbe = Status).

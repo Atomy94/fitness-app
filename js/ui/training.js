@@ -10,6 +10,7 @@ import { minimalAktiv, planTag, planAuswahl } from '../core/ziele.js';
 import { neueId, uebungsSchluessel, tagVon } from '../core/state.js';
 import { fmt } from '../core/zahl.js';
 import { uebungsVerlaeufe, vergleich, variante, zuletztSchwer, ergaenzePlanUebung } from '../core/kraft.js';
+import { pausenSignal } from '../core/signal.js';
 import { WT_LANG, WT_KURZ, wochentag, wochenTage, montag, de, deKurz, deMitTag, istDatum } from '../core/datum.js';
 
 const enc = encodeURIComponent;
@@ -286,12 +287,56 @@ function vorbereitung(einheit, datum) {
   return { titel: einheit, zurueck: live ? 'training' : `tag/${datum}`, knoten };
 }
 
+// ---------- Töne (Web Audio) ----------
+// iOS erlaubt Töne erst nach einer Berührung. Deshalb wird der Audio-Kontext beim ersten Tippen im
+// Training erzeugt bzw. fortgesetzt (tonBereit). Die Ausgabe läuft über das aktive Gerät, also auch Kopfhörer.
 let audio = null;
 function tonBereit() {
   try {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    if (audio.state === 'suspended') audio.resume();
+    if (!audio) {
+      audio = new (window.AudioContext || window.webkitAudioContext)();
+      // Kurze Signale, die sich mit laufender Musik mischen, statt sie zu unterbrechen (neuere iOS-Versionen).
+      try { if (navigator.audioSession) navigator.audioSession.type = 'transient'; } catch { /* nicht unterstützt */ }
+    }
+    if (audio.state !== 'running') audio.resume().catch(() => {});
   } catch { /* kein Ton verfügbar */ }
+}
+
+/** Ein Ton auf der Audio-Uhr: startet in "inSek" Sekunden und dauert "dauer" Sekunden. */
+function piep(inSek, dauer, frequenz) {
+  const o = audio.createOscillator();
+  const g = audio.createGain();
+  o.type = 'sine';
+  o.frequency.value = frequenz;
+  o.connect(g); g.connect(audio.destination);
+  const t = audio.currentTime + inSek;
+  const ende = t + Math.max(0.05, dauer);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.5, t + 0.015);
+  g.gain.setValueAtTime(0.5, Math.max(t + 0.02, ende - 0.03));
+  g.gain.exponentialRampToValueAtTime(0.0001, ende);
+  o.start(t); o.stop(ende + 0.02);
+  return o;
+}
+
+// Pausen-Signal: bei 3 und 2 Sekunden Rest ein kurzer Ton, in der letzten Sekunde ein langer bis zum Ende.
+// Die Töne werden beim Start der Pause fest auf der Audio-Uhr eingeplant; das ist genauer als ein Zeitgeber.
+let geplanteToene = [];
+function signalAbbrechen() {
+  for (const o of geplanteToene) { try { o.stop(); } catch { /* schon beendet */ } }
+  geplanteToene = [];
+}
+function signalPlanen(endeMs) {
+  signalAbbrechen();
+  if (!audio || !endeMs) return;
+  const plane = () => {
+    signalAbbrechen();
+    try {
+      geplanteToene = pausenSignal((endeMs - Date.now()) / 1000).map((x) => piep(x.in, x.dauer, x.lang ? 1047 : 880));
+    } catch { /* ignorieren */ }
+  };
+  if (audio.state === 'running') plane();
+  else audio.resume().then(plane).catch(() => {});
 }
 function ton(anzahl = 2) {
   if (navigator.vibrate) navigator.vibrate(Array.from({ length: anzahl * 2 - 1 }, () => 200));
@@ -380,14 +425,14 @@ function startScreen(einheit, datumArg) {
   const pauseEl = h('span', { class: 'gross pause' }, '');
   const pauseTitel = h('div', { class: 'klein' }, 'Satzpause');
   const standardPause = () => S.state.einstellungen.pauseSek;
-  const startePause = (sek) => { en.pauseSoll = sek; en.pauseBis = Date.now() + sek * 1000; en.pauseGemeldet = false; };
+  const startePause = (sek) => { en.pauseSoll = sek; en.pauseBis = Date.now() + sek * 1000; en.pauseGemeldet = false; signalPlanen(en.pauseBis); };
   const haltKnopf = h('button', { type: 'button', class: 'knopf schmal', onclick: () => {
     if (en.angehaltenSeit) {
       en.angehaltenMs = (en.angehaltenMs || 0) + (Date.now() - en.angehaltenSeit);
       en.angehaltenSeit = null;
     } else {
       en.angehaltenSeit = Date.now();
-      en.pauseBis = null; en.pauseGemeldet = true; // Satzpause endet mit dem Anhalten
+      en.pauseBis = null; en.pauseGemeldet = true; signalAbbrechen(); // Satzpause endet mit dem Anhalten
     }
     sichern(); tick();
   } }, 'Anhalten');
@@ -411,8 +456,8 @@ function startScreen(einheit, datumArg) {
     ),
     h('div', { class: 'knopfreihe', style: 'margin-top:6px' },
       h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.angehaltenSeit) return; tonBereit(); startePause(en.pauseSoll || standardPause()); sichern(); tick(); } }, 'Pause neu'),
-      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.pauseBis) { en.pauseBis += 15000; en.pauseGemeldet = false; sichern(); tick(); } } }, '+15 s'),
-      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { en.pauseBis = null; en.pauseGemeldet = true; sichern(); tick(); } }, 'Pause aus'),
+      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.pauseBis) { tonBereit(); en.pauseBis += 15000; en.pauseGemeldet = false; signalPlanen(en.pauseBis); sichern(); tick(); } } }, '+15 s'),
+      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { en.pauseBis = null; en.pauseGemeldet = true; signalAbbrechen(); sichern(); tick(); } }, 'Pause aus'),
     ),
   );
   function tick() {
@@ -431,7 +476,7 @@ function startScreen(einheit, datumArg) {
       pauseEl.textContent = rest > 0 ? mmss(rest) : 'Weiter!';
       pauseTitel.textContent = `Satzpause · Soll ${en.pauseSoll || standardPause()} Sek.`;
       pauseEl.classList.toggle('fertig', rest <= 0);
-      if (rest <= 0 && !en.pauseGemeldet) { en.pauseGemeldet = true; sichern(); ton(2); }
+      if (rest <= 0 && !en.pauseGemeldet) { en.pauseGemeldet = true; sichern(); if (navigator.vibrate) navigator.vibrate(300); }
     } else {
       pauseEl.textContent = '–';
       pauseTitel.textContent = 'Satzpause';
@@ -441,7 +486,7 @@ function startScreen(einheit, datumArg) {
   if (live) {
     tick();
     const takt = setInterval(tick, 500);
-    beiVerlassen(() => clearInterval(takt));
+    beiVerlassen(() => { clearInterval(takt); signalAbbrechen(); });
   }
 
   const wechsleVersion = (u) => {
@@ -552,6 +597,13 @@ function startScreen(einheit, datumArg) {
       h('button', { type: 'button', class: 'knopf gefahr breit abstand', onclick: () => { if (confirm('Training verwerfen? Die Eingaben gehen verloren.')) { S.entwurf = null; speichereEntwurf(); location.hash = '#training'; } } }, 'Verwerfen'),
     ),
   );
+  if (live) {
+    knoten.addEventListener('pointerdown', () => {
+      const neuBereit = !audio || audio.state !== 'running';
+      tonBereit();
+      if (neuBereit && en.pauseBis && en.pauseBis > Date.now()) signalPlanen(en.pauseBis);
+    }, { passive: true });
+  }
   return { titel: einheit, zurueck, knoten };
 }
 
