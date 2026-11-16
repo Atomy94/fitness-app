@@ -27,7 +27,7 @@ Der Block darf in Code-Zäunen (```) stehen und Leerzeilen davor haben.
 
 ## Allgemeine Regeln
 
-1. **Pflicht sind nur `typ` und `datum`** (bei `ziel`: `gueltig_ab`, `schluessel`, `wert`; bei `training`: `einheit`; bei `cardio`: `art`; bei `blutwert`: `name`; bei `rezept` und `einheit`: `name`, kein Datum). Alles andere ist optional.
+1. **Pflicht sind nur `typ` und `datum`** (bei `ziel`: `gueltig_ab`, `schluessel`, `wert`; bei `training`: `einheit`; bei `cardio`: `art`; bei `blutwert`: `name`; bei `rezept` und `einheit`: `name`, kein Datum; bei `plantag`: `wochentag`, kein Datum). Alles andere ist optional.
 2. **Nur vorhandene Felder werden übernommen.** Fehlende Felder lassen vorhandene Werte unverändert.
 3. **`null` bedeutet „nicht ändern“.** Ein Wert lässt sich per Import nicht löschen (das geht in der App).
 4. **Datum** immer als `JJJJ-MM-TT`. Ein Datum, das es nicht gibt, ist ein Fehler.
@@ -163,9 +163,27 @@ Gleicher Name: Das vorhandene Rezept wird ergänzt bzw. überschrieben (nur die 
 
 Bereits gespeicherte Trainings bleiben unverändert. Die Vorschau zeigt die alte und die neue Übungsliste.
 
+### `plantag` – ein Wochentag des Wochenplans (ab App-Version 1.7, **ohne `datum`**)
+
+```
+{ "typ": "plantag", "wochentag": "Sa", "art": "bonus", "einheit": "Kraft C", "text": "Kraft C oder Studio (Bonus)", "wahl": [ { "text": "Alleine", "einheit": "Kraft C" }, { "text": "Im Studio", "einheit": "Studio" } ], "gueltig_ab": "2026-11-21" }
+```
+
+| Feld | Typ | Bedeutung |
+|---|---|---|
+| `wochentag` | Pflicht | 1–7 (1 = Montag) oder `Mo`…`So` bzw. `Montag`…`Sonntag` |
+| `art` | Text | `kraft` (Pflicht), `bonus` (erledigt grün, ausgefallen grau), `laufband`, `fussball`, `frei` |
+| `einheit` | Text | Einheit bei `kraft`/`bonus` |
+| `minuten` | ganze Zahl | Vorgabe bei `laufband` |
+| `text` | Text | Anzeigetext im Wochenplan |
+| `wahl` | Liste | 2–4 Möglichkeiten `{ "text", "einheit" }`: Die App fragt beim Start „Wie trainierst du heute?“ und zeigt je Möglichkeit einen Knopf. Eine leere Liste entfernt die Auswahl. |
+| `gueltig_ab` | Datum | Ab diesem Tag gilt die Änderung; frühere Tage werden weiter nach dem bisherigen Wochenplan bewertet. Ohne Angabe gilt sie auch rückwirkend. |
+
+Nur gelieferte Felder ändern sich. Verweist der Eintrag auf eine Einheit, die es im Plan nicht gibt, zeigt die Vorschau eine Warnung; steht die Einheit im selben Block **davor** als `einheit`, ist alles in Ordnung. Bei anderer `art` als `kraft`/`bonus` entfallen `einheit` und `wahl`.
+
 ## Nicht per Import änderbar
 
-Der Wochenplan (welcher Tag welche Einheit) und die Zeiträume der Minimalversion werden in der App eingestellt (Mehr → Trainingsplan bzw. Einstellungen).
+Die Zeiträume der Minimalversion werden in der App eingestellt (Mehr → Einstellungen).
 
 ## Regeln für Erweiterungen (Kompatibilität)
 

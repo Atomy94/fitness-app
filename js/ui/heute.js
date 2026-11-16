@@ -7,6 +7,7 @@ import { symbol, kachel } from './symbole.js';
 import { tagBewertung } from '../core/bewertung.js';
 import { ausHealthData } from '../core/erstimport.js';
 import { fmt } from '../core/zahl.js';
+import { planAuswahl } from '../core/ziele.js';
 import { deMitTag, stundeBerlin, diffTage } from '../core/datum.js';
 
 /** Liest eine gewählte health-data.json ein und ersetzt den Stand. */
@@ -54,7 +55,13 @@ function planKarte(b, d) {
     text = p.text || p.einheit || '';
     if (p.typ === 'kraft' || p.typ === 'bonus') {
       if (b.minimal && p.typ === 'kraft') text += ` – Minimalversion: ${mk.minuten} Min., die ersten ${mk.uebungen} Übungen`;
-      knopf = h('a', { class: 'knopf haupt breit', href: `#training/start/${encodeURIComponent(p.einheit)}` }, S.entwurf ? 'Training fortsetzen' : `${p.einheit} öffnen`);
+      const auswahl = planAuswahl(p);
+      if (S.entwurf) knopf = h('a', { class: 'knopf haupt breit', href: `#training/start/${encodeURIComponent(S.entwurf.einheit)}/${S.entwurf.datum}` }, 'Training fortsetzen');
+      else if (auswahl.length > 1) {
+        // Mehrere Einheiten zur Auswahl (z. B. Samstag: alleine oder im Studio): erst fragen
+        knopf = h('div', null, h('p', { class: 'klein', style: 'margin-bottom:6px' }, 'Wie trainierst du heute?'),
+          h('div', { class: 'knopfreihe' }, auswahl.map((w) => h('a', { class: 'knopf haupt', href: `#training/start/${encodeURIComponent(w.einheit)}` }, w.text))));
+      } else knopf = h('a', { class: 'knopf haupt breit', href: `#training/start/${encodeURIComponent(p.einheit)}` }, `${p.einheit} öffnen`);
     } else if (p.typ === 'laufband') {
       if (b.minimal) text += ' (Minimalversion: ohne Wertung)';
       knopf = h('a', { class: 'knopf haupt breit', href: `#training/cardio/Laufband/${d}` }, 'Laufband eintragen');

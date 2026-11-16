@@ -112,6 +112,17 @@ export function planTag(einstellungen, datum) {
 }
 
 /**
+ * Einheiten, die an einem Plantag zur Auswahl stehen: [{ text, einheit }].
+ * Normal genau eine; mit "wahl" (z. B. Samstag: alleine oder im Studio) mehrere.
+ */
+export function planAuswahl(planEintrag) {
+  if (!planEintrag || (planEintrag.typ !== 'kraft' && planEintrag.typ !== 'bonus')) return [];
+  const wahl = (planEintrag.wahl || []).filter((w) => w && w.einheit);
+  if (wahl.length >= 2) return wahl.map((w) => ({ text: w.text || w.einheit, einheit: w.einheit }));
+  return planEintrag.einheit ? [{ text: planEintrag.einheit, einheit: planEintrag.einheit }] : [];
+}
+
+/**
  * Alle Grenzwerte, die an einem Tag gelten.
  * fussball: Hat an diesem Tag Fußball stattgefunden (bzw. ist er geplant)?
  */

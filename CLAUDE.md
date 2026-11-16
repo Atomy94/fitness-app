@@ -71,7 +71,7 @@ js/ui/                  Bildschirme, je ein Modul
   heute.js  kalender.js  tag.js  training.js  fortschritt.js  mehr.js  rezepte.js (#rezepte, erreichbar über „Mehr“)
   symbole.js (eigene SVG-Symbole; uebungsArt(name) ordnet Übungen/Sportarten Symbol und Farbgruppe zu; kachel())
   cloud.js (#cloud, Claude-Verbindung)  vorschau.js (Import-Vorschau, von Einfüge-Import und Dropbox-Eingang benutzt)
-tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
+tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
 tools/                  server.mjs (Vorschau), make-icons.mjs
 ```
 
@@ -88,7 +88,7 @@ IndexedDB-Datenbank `fitness-app` (echte Daten) bzw. `fitness-app-demo` (Testdat
 | `messungen` | Liste, ein Eintrag je Datum+Quelle: `bauch_cm, koerperfett_pct, gewicht_kg, muskelmasse_kg, …, liegestuetze_max, kniebeugen_max, quelle, ungueltig, grund` |
 | `blutwerte` | Liste: `{ id, datum, name, wert, wert_text, einheit, norm_min, norm_max }` |
 | `ziele` | Liste: `{ id, schluessel, gueltig_ab, wert }` – Schlüssel siehe `ZIEL_INFO` / IMPORT-FORMAT.md |
-| `einstellungen` | `start, profil, phasen, minimal.zeitraeume[{von,bis}], minimalKraft, plan{maxMinuten, wochenplan{1..7}, wochenplanAlt[{bis, wochenplan}], einheiten{Name:[{ name, saetze, wdh, kg, kg_text, sek, pause_sek, notiz, schwer:{ name, wdh, kg, sek, saetze, pause_sek, notiz } }]}, progression}, zielpfad{von,bis}, pauseSek, autoImportOhneVorschau, supplements, letzteSicherung, eingerichtet, archiv` |
+| `einstellungen` | `start, profil, phasen, minimal.zeitraeume[{von,bis}], minimalKraft, plan{maxMinuten, wochenplan{1..7: { typ, einheit, minuten, text, wahl:[{ text, einheit }] }}, wochenplanAlt[{bis, wochenplan}], einheiten{Name:[{ name, saetze, wdh, kg, kg_text, sek, pause_sek, notiz, schwer:{ name, wdh, kg, sek, saetze, pause_sek, notiz } }]}, progression}, zielpfad{von,bis}, pauseSek, autoImportOhneVorschau, supplements, letzteSicherung, eingerichtet, archiv` |
 | `checkins` | Objekt je Montag: `{ verdauung, besonderheiten }` |
 | `rezepte` | Liste: `{ id, name, kategorie (Frühstück/Mittagessen/Abendessen/Snacks), bezug:'portion'|'100g', portion, zutaten:[{ name, menge }], kcal, eiweiss_g, kh_g, fett_g, ges_fett_g, zucker_g, ballaststoffe_g, salz_g, notiz }`. Fehlt die Sammlung (Stand aus 1.0), baut `ergaenze()` sie aus `einstellungen.archiv`. |
 | `entwurf` | laufendes Training (nicht Teil der Sicherung): Übungen mit Sätzen, `startMs`, `angehaltenSeit`, `angehaltenMs` (angehaltene Zeit zählt nicht zur Dauer), `pauseBis` (Satzpause) |
@@ -120,7 +120,7 @@ Status: `gruen` geschafft · `gelb` knapp · `rot` verfehlt · `grau` trifft nic
 Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 
 - Textblock beginnt mit `FITNESS-IMPORT v1`, danach JSON `{ "eintraege": [ … ] }`.
-- Typen: `tag`, `training`, `cardio`, `messung`, `ziel`, `blutwert`, `rezept` (ohne Datum, Schlüssel ist der Name), `einheit` (ohne Datum; ersetzt die Übungsliste einer Plan-Einheit oder legt eine neue an).
+- Typen: `tag`, `training`, `cardio`, `messung`, `ziel`, `blutwert`, `rezept` (ohne Datum, Schlüssel ist der Name), `einheit` (ohne Datum; ersetzt die Übungsliste einer Plan-Einheit oder legt eine neue an), `plantag` (ohne Datum; ändert einen Wochentag des Wochenplans, auch mit Auswahl mehrerer Einheiten).
 - Pflicht nur `typ` und `datum` (plus Kennfelder: `einheit`, `art`, `name`, bei `ziel`: `gueltig_ab`, `schluessel`, `wert`).
 - Nur vorhandene Felder werden übernommen; `null` = nicht ändern.
 - Vorschau (neu / alt → neu) vor dem Speichern; gespeichert wird erst nach „Übernehmen“.
@@ -155,13 +155,17 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 
 ## Training durchführen und Steigerung
 
+- **Auswahl am Plantag (seit 1.7):** Hat ein Plantag `wahl` (2–4 Einträge `{ text, einheit }`), fragt die App auf „Heute“ und auf „Training“ „Wie trainierst du heute?“ und zeigt je Möglichkeit einen Knopf (`planAuswahl()` in `js/core/ziele.js`). Beim Nutzer: Samstag „Alleine“ → Kraft C, „Mit …“ → Studio-Einheit. Gewertet wird wie bisher nach `typ` (Bonus: jede Krafteinheit grün, sonst grau). Die konkreten Namen stehen in den Daten des Nutzers, nicht im Code.
+- **Eigene Übung im Training (seit 1.7):** Karte „Eigene Übung hinzufügen“ im laufenden Training. Mit Haken „Künftig immer in …“ wird sie über `ergaenzePlanUebung()` dauerhaft in den Plan der Einheit geschrieben. Sie bekommt automatisch einen eigenen Verlauf.
+- **Übungsnamen:** `uebungsName()` schneidet alles nach dem ersten Komma und reine Hinweis-Klammern ab (beginnen mit Tempo, je, nach, langsam oder einer Ziffer). Andere Klammern gehören zum Namen: „Liegestütze (Studio)“ ist eine eigene Übung mit eigenem Verlauf.
+- Ein Satz ohne eingetragene Wiederholungen lässt sich nicht bestätigen (die App setzt den Cursor ins Feld).
 - **Ablauf (seit 1.4):** Eine Einheit öffnet zuerst eine **Übersicht ohne Zeit** (`vorbereitung()` in `js/ui/training.js`): alle Übungen mit Ziel, Pause und letztem Stand. Erst „Training starten“ legt den Entwurf an und startet die Zeit.
 - **Einfache und anspruchsvolle Version:** Hat eine Plan-Übung `schwer`, gibt es je Übung einen Knopf zum Wechseln (in der Übersicht und im laufenden Training). `variante()` in `js/core/kraft.js` baut die anspruchsvolle Version (erbt Sätze und Pause; Wdh./Sek./kg nur, wenn sie selbst nichts angibt). Vorbelegt wird die zuletzt trainierte Version (`zuletztSchwer()`). Beide Versionen haben eigene Namen und damit getrennte Verläufe unter „Steigerung je Übung“. Pflegbar unter Mehr → Trainingsplan oder per Import (`einheit`, Feld `schwer`).
 - **Pause je Übung:** `pause_sek` im Plan ist die vorgeschriebene Pause nach jedem Satz. Nach ✓ startet der Timer mit genau diesem Wert und zeigt „Soll … Sek.“. Ohne Angabe gilt `einstellungen.pauseSek` (Standard-Pause). Einstellbar unter Mehr → Trainingsplan (Feld „Pause“) oder per Import (`einheit`).
 - Timer oben: **Anhalten/Fortsetzen** (ganze Einheit, Zeit steht) und **Beenden** (speichert bestätigte Sätze, fragt bei offenen Sätzen nach). Darunter die Satzpause, die nach jedem ✓ automatisch startet.
 - Jede gespeicherte Einheit hält je Übung alle Sätze mit Gewicht und Wiederholungen fest.
 - **„Steigerung je Übung“** (auf „Training“ und „Fortschritt“): letzter Stand je Übung, Veränderung zur vorherigen Einheit und seit dem ersten Eintrag. Detail je Übung: Bestwert, Diagramme (Gewicht, Wiederholungen, Gewicht × Wdh.), alle Einträge mit Veränderung.
-- Übungen werden über `uebungsSchluessel()` zusammengeführt (Name bis zum ersten Komma oder zur ersten Klammer, Kleinschreibung). Mehr Gewicht zählt als Steigerung, auch bei weniger Wiederholungen.
+- Übungen werden über `uebungsSchluessel()` zusammengeführt (`uebungsName()` in Kleinschreibung, siehe oben). Mehr Gewicht zählt als Steigerung, auch bei weniger Wiederholungen.
 
 ## Besonderheiten der Daten
 
@@ -176,5 +180,5 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 
 - iOS: Vibration gibt es in Safari nicht; der Timer-Ton funktioniert nur, solange die App im Vordergrund ist.
 - Eine gespeicherte Krafteinheit lässt sich nicht satzweise bearbeiten (löschen und neu eintragen oder per Import ersetzen).
-- Einheiten im Plan (Kraft A/B/C) können in der App bearbeitet, aber nur per Import (`einheit`) neu angelegt werden; umbenennen und löschen geht nicht.
+- Einheiten im Plan können in der App bearbeitet, aber nur per Import (`einheit`) neu angelegt werden; umbenennen und löschen geht nicht. Eine zweite Einheit zur Auswahl lässt sich unter Mehr → Trainingsplan je Wochentag einstellen.
 - „Heute“ zeigt drei Ringe: Kalorien, Eiweiß, Schritte (jeweils gegen das Tagesziel, Farbe = Status).

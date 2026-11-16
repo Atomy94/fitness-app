@@ -6,10 +6,10 @@ import { h, karte, zahlFeld, textFeld, datumFeld, diagramm, STATUS_TEXT } from '
 import { symbol, kachel, uebungsArt } from './symbole.js';
 import { tagBewertung } from '../core/bewertung.js';
 import { einheitText } from './tag.js';
-import { minimalAktiv, planTag } from '../core/ziele.js';
+import { minimalAktiv, planTag, planAuswahl } from '../core/ziele.js';
 import { neueId, uebungsSchluessel, tagVon } from '../core/state.js';
 import { fmt } from '../core/zahl.js';
-import { uebungsVerlaeufe, vergleich, variante, zuletztSchwer } from '../core/kraft.js';
+import { uebungsVerlaeufe, vergleich, variante, zuletztSchwer, ergaenzePlanUebung } from '../core/kraft.js';
 import { WT_LANG, WT_KURZ, wochentag, wochenTage, montag, de, deKurz, deMitTag, istDatum } from '../core/datum.js';
 
 const enc = encodeURIComponent;
@@ -46,9 +46,11 @@ function bereich(wdhText) {
 /** Vorgeschriebene Pause nach jedem Satz dieser Übung (Sekunden). */
 const pauseVon = (u) => (typeof u.pause_sek === 'number' ? u.pause_sek : S.state.einstellungen.pauseSek);
 
+/** "3 × 8-12", "2 × 40 Sek." oder – ohne Vorgabe für Wiederholungen – "4 Sätze". */
+const satzZielText = (u) => (u.sek ? `${u.saetze} × ${u.sek} Sek.` : u.wdh ? `${u.saetze} × ${u.wdh}` : `${u.saetze} ${u.saetze === 1 ? 'Satz' : 'Sätze'}`);
+
 function zielText(u) {
-  const menge = u.sek ? `${u.sek} Sek.` : u.wdh || '';
-  return `${u.saetze} × ${menge}${u.kg ? ` · ${fmt(u.kg, 1)} kg${u.kg_text ? ` (${u.kg_text})` : ''}` : ''}`;
+  return `${satzZielText(u)}${u.kg ? ` · ${fmt(u.kg, 1)} kg${u.kg_text ? ` (${u.kg_text})` : ''}` : ''}`;
 }
 
 // ---------- Bausteine für die Gestaltung ----------
@@ -58,7 +60,7 @@ const chip = (sym, text, klasse = '') => h('span', { class: `chip ${klasse}`.tri
 /** Sätze × Wiederholungen, Gewicht und Pause einer Plan-Übung als kleine Marken. */
 function zielChips(u) {
   return h('div', { class: 'chips' },
-    chip('wdh', `${u.saetze} × ${u.sek ? `${u.sek} Sek.` : u.wdh || '?'}`),
+    chip('wdh', satzZielText(u)),
     u.kg ? chip('gewicht', `${fmt(u.kg, 1)} kg${u.kg_text ? ` (${u.kg_text})` : ''}`) : null,
     chip('uhr', `Pause ${pauseVon(u)} s`),
   );
@@ -112,7 +114,7 @@ function wochenLeiste(d) {
 function einheitKarte(name, d) {
   const liste = S.state.einstellungen.plan.einheiten[name];
   const p = planTag(S.state.einstellungen, d);
-  const dran = !!p && (p.typ === 'kraft' || p.typ === 'bonus') && p.einheit === name;
+  const dran = planAuswahl(p).some((w) => w.einheit === name);
   const letzte = sortiert().find((t) => t.typ === 'kraft' && t.einheit === name);
   const laeuft = !!S.entwurf && S.entwurf.einheit === name;
   const m = name.match(/^Kraft\s+(\S)/i);
@@ -144,6 +146,9 @@ function uebersicht() {
       h('p', { class: 'klein abstand' }, h('b', null, 'Heute: '), heutePlan ? heutePlan.text || heutePlan.einheit || '' : 'kein Trainingsziel'),
       minimal ? h('p', { class: 'klein abstand' }, `Minimalversion aktiv: Kraft an den Pflichttagen je ${e.minimalKraft.minuten} Min. (erste ${e.minimalKraft.uebungen} Übungen), Laufband ohne Wertung.`) : null,
     ),
+    !S.entwurf && planAuswahl(heutePlan).length > 1 && !sortiert().some((t) => t.typ === 'kraft' && t.datum === d)
+      ? karte('Wie trainierst du heute?', h('div', { class: 'knopfreihe' }, planAuswahl(heutePlan).map((w) => h('a', { class: 'knopf haupt', href: `#training/start/${enc(w.einheit)}` }, w.text))))
+      : null,
     h('h2', { class: 'abschnitt' }, 'Krafttraining'),
     einheiten.map((n) => einheitKarte(n, d)),
     h('h2', { class: 'abschnitt' }, 'Cardio eintragen'),
@@ -207,7 +212,7 @@ function entwurfUebung(planUebung, datum, schwer) {
   }
   return {
     name: u.name, zeit, planNotiz: u.notiz || '', ziel: zielText(u),
-    satzZiel: `${u.saetze} × ${u.sek ? `${u.sek} Sek.` : u.wdh || '?'}`, kgZiel: u.kg ? `${fmt(u.kg, 1)} kg` : '',
+    satzZiel: satzZielText(u), kgZiel: u.kg ? `${fmt(u.kg, 1)} kg` : '',
     basis: planUebung.name, schwer: u.name !== planUebung.name, hatSchwer: !!(planUebung.schwer && planUebung.schwer.name),
     letzte: letzteZeile(u.name, datum),
     hinweis, notiz: '', pauseSek: pauseVon(u),
@@ -459,6 +464,12 @@ function startScreen(einheit, datumArg) {
             ? zahlFeld({ wert: x.sek, min: 0, max: 36000, onChange: (v) => { x.sek = v; sichern(); } })
             : [zahlFeld({ wert: x.kg, min: 0, max: 1000, onChange: (v) => { x.kg = v ?? 0; sichern(); } }), h('span', { class: 'nr' }, '×'), zahlFeld({ wert: x.wdh, ganz: true, min: 0, max: 10000, onChange: (v) => { x.wdh = v; sichern(); } })],
           h('button', { type: 'button', class: 'ok', 'aria-label': `Satz ${i + 1} bestätigen`, onclick: () => {
+            if (!x.fertig && !u.zeit && (x.wdh === null || x.wdh === undefined)) {
+              meldung('Bitte zuerst die Wiederholungen eintragen.');
+              const feld = zeile.querySelectorAll('input')[1];
+              if (feld) feld.focus();
+              return;
+            }
             x.fertig = !x.fertig;
             zeile.classList.toggle('fertig', x.fertig);
             zeichnePips();
@@ -488,11 +499,37 @@ function startScreen(einheit, datumArg) {
         h('button', { type: 'button', class: 'knopf schmal', onclick: () => { const l = u.saetze.at(-1) || {}; u.saetze.push({ ...l, fertig: false }); sichern(); zeichne(); zeichnePips(); } }, '+ Satz'),
         h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (u.saetze.length > 1) { u.saetze.pop(); sichern(); zeichne(); zeichnePips(); } } }, '− Satz'),
       ),
-      textFeld({ platzhalter: 'Notiz (Tempo, Technik …)', wert: u.notiz, onChange: (v) => { u.notiz = v; sichern(); } }),
+      textFeld({ platzhalter: /band/i.test(u.name) ? 'Notiz (z. B. Bandstärke)' : 'Notiz (Tempo, Technik …)', wert: u.notiz, onChange: (v) => { u.notiz = v; sichern(); } }),
       u.hatSchwer ? h('button', { type: 'button', class: 'knopf schmal breit abstand', onclick: () => {
         if (u.saetze.some((x) => x.fertig) && !confirm('Für diese Übung sind schon Sätze bestätigt. Beim Wechsel der Version gehen sie verloren. Trotzdem wechseln?')) return;
         wechsleVersion(u);
       } }, symbol(u.schwer ? 'pfeilRunter' : 'pfeilHoch'), u.schwer ? `Zur einfachen Version: ${u.basis}` : 'Zur anspruchsvolleren Version') : null,
+    );
+  };
+
+  // Eigene Übung hinzufügen: sofort im Training, auf Wunsch dauerhaft im Plan dieser Einheit
+  const eigeneKarte = () => {
+    const neuU = { name: '', saetze: 3 };
+    const bekannte = uebungsVerlaeufe(S.state).map((v) => v.name);
+    const nameFeld = h('input', { type: 'text', list: 'bekannte-uebungen', placeholder: 'Name der Übung', autocomplete: 'off', onchange: () => { neuU.name = nameFeld.value.trim(); } });
+    const merken = h('input', { type: 'checkbox', style: 'width:24px;height:24px;flex:none' });
+    merken.checked = true;
+    return h('section', { class: 'karte' }, h('h2', null, 'Eigene Übung hinzufügen'),
+      nameFeld, h('datalist', { id: 'bekannte-uebungen' }, bekannte.map((n) => h('option', { value: n }))),
+      h('div', { class: 'abstand' }, zahlFeld({ label: 'Sätze', wert: 3, ganz: true, min: 1, max: 20, onChange: (v) => { neuU.saetze = v || 3; } })),
+      h('label', { class: 'zeile', style: 'min-height:48px' }, merken, h('span', { class: 'wachs' }, `Künftig immer in „${einheit}“`)),
+      h('button', { type: 'button', class: 'knopf breit', onclick: () => {
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        neuU.name = nameFeld.value.trim();
+        if (!neuU.name) { meldung('Bitte einen Namen eintragen.'); return; }
+        if (en.uebungen.some((u) => uebungsSchluessel(u.name) === uebungsSchluessel(neuU.name))) { meldung('Diese Übung ist schon in der Einheit.'); return; }
+        const planUebung = { name: neuU.name, saetze: neuU.saetze, wdh: '', kg: null };
+        en.uebungen.push(entwurfUebung(planUebung, datum, false));
+        if (merken.checked && ergaenzePlanUebung(S.state.einstellungen.plan.einheiten, einheit, planUebung)) speichern('einstellungen');
+        sichern();
+        meldung(`${neuU.name} hinzugefügt`);
+        neu();
+      } }, '+ Übung hinzufügen'),
     );
   };
 
@@ -506,6 +543,7 @@ function startScreen(einheit, datumArg) {
     live ? timer : h('div', { class: 'hinweis ruhig' }, `Nachtrag für ${deMitTag(datum)}`),
     en.gekuerzt ? h('div', { class: 'hinweis ruhig' }, `Minimalversion: ${en.maxMin} Min., die ersten ${en.uebungen.length} Übungen.`) : null,
     en.uebungen.map(uebungKarte),
+    eigeneKarte(),
     karte('Abschluss',
       live ? h('label', { class: 'feld' }, h('span', null, 'Standard-Pause (für Übungen ohne eigene Vorgabe)'), pauseWahl) : zahlFeld({ label: 'Dauer', einheit: 'Min.', wert: en.dauer_min, min: 0, max: 600, onChange: (v) => { en.dauer_min = v; sichern(); } }),
       h('label', { class: 'zeile', style: 'min-height:48px' }, verkuerztBox, h('span', { class: 'wachs' }, 'Verkürzt trainiert (zählt gelb)')),

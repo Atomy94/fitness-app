@@ -2,7 +2,7 @@
 // Ablauf: leseImport(text) prüft → verarbeite(state, eintraege) liefert Vorschau UND neuen Stand.
 // Gespeichert wird erst, wenn die App den neuen Stand nach "Übernehmen" übernimmt.
 
-import { istDatum, de } from './datum.js';
+import { istDatum, de, plusTage, WT_KURZ, WT_LANG } from './datum.js';
 import { parseZahl, fmt } from './zahl.js';
 import { ZIEL_INFO, setzeZiel } from './ziele.js';
 import { neueId } from './state.js';
@@ -37,6 +37,8 @@ export const FELDER = {
   },
   // Einheit des Trainingsplans (z. B. "Kraft A"): ersetzt die Übungsliste dieser Einheit komplett.
   einheit: { name: ['text*'], uebungen: ['planuebungen*'] },
+  // Ein Wochentag des Wochenplans. "wahl": mehrere Einheiten zur Auswahl (die App fragt beim Start).
+  plantag: { wochentag: ['wochentag*'], art: ['planart'], einheit: ['text'], minuten: G(1, 600), text: ['text'], wahl: ['planwahl'], gueltig_ab: ['datum'] },
   blutwert: { name: ['text*'], wert: Z(-1e9, 1e9), wert_text: ['text'], einheit: ['text'], norm_min: Z(-1e9, 1e9), norm_max: Z(-1e9, 1e9) },
 };
 
@@ -52,10 +54,13 @@ export const FELD_NAMEN = {
   kniebeugen_max: 'Kniebeugen am Stück', quelle: 'Quelle', ungueltig: 'Ungültig', grund: 'Grund',
   wert: 'Wert', wert_text: 'Wert (Text)', norm_min: 'Norm ab', norm_max: 'Norm bis', name: 'Name',
   kategorie: 'Kategorie', bezug: 'Nährwerte gelten', portion: 'Portion', zutaten: 'Zutaten',
+  plantag: 'Plan', hinweis: 'Achtung', wochentag: 'Wochentag', minuten: 'Minuten', wahl: 'Auswahl', gueltig_ab: 'Gültig ab', text: 'Anzeigetext',
 };
 
-const TYP_NAMEN = { tag: 'Tag', training: 'Training', cardio: 'Cardio', messung: 'Messung', ziel: 'Ziel', blutwert: 'Blutwert', rezept: 'Rezept', einheit: 'Plan-Einheit' };
-const OHNE_DATUM = ['ziel', 'rezept', 'einheit'];
+const TYP_NAMEN = { tag: 'Tag', training: 'Training', cardio: 'Cardio', messung: 'Messung', ziel: 'Ziel', blutwert: 'Blutwert', rezept: 'Rezept', einheit: 'Plan-Einheit', plantag: 'Wochenplan' };
+const OHNE_DATUM = ['ziel', 'rezept', 'einheit', 'plantag'];
+const PLAN_ARTEN = ['kraft', 'laufband', 'bonus', 'fussball', 'frei'];
+const PLAN_ART_NAMEN = { kraft: 'Kraft (Pflicht)', laufband: 'Laufband', bonus: 'Kraft (Bonus)', fussball: 'Fußball', frei: 'kein Trainingsziel' };
 
 function pruefeWert(spec, wert, wo, fehler) {
   const typ = spec[0].replace('*', '');
@@ -107,6 +112,26 @@ function pruefeWert(spec, wert, wo, fehler) {
     wert.forEach((u, i) => {
       const ueb = pruefeUebung(u, `${wo}[${i + 1}]`, false);
       if (ueb) aus.push(ueb);
+    });
+    return aus;
+  }
+  if (typ === 'wochentag') {
+    const kurz = WT_KURZ.findIndex((w) => w.toLowerCase() === String(wert).trim().toLowerCase());
+    const lang = WT_LANG.findIndex((w) => w.toLowerCase() === String(wert).trim().toLowerCase());
+    const nr = Number.isInteger(wert) ? wert : kurz >= 0 ? kurz + 1 : lang >= 0 ? lang + 1 : 0;
+    if (nr < 1 || nr > 7) { fehler.push(`${wo}: muss ein Wochentag sein (1–7 oder Mo, Di, Mi, Do, Fr, Sa, So).`); return undefined; }
+    return nr;
+  }
+  if (typ === 'planart') {
+    if (!PLAN_ARTEN.includes(wert)) { fehler.push(`${wo}: muss eines von ${PLAN_ARTEN.join(', ')} sein.`); return undefined; }
+    return wert;
+  }
+  if (typ === 'planwahl') {
+    if (!Array.isArray(wert) || wert.length === 1 || wert.length > 4) { fehler.push(`${wo}: muss eine Liste mit 2 bis 4 Möglichkeiten sein (oder leer, um die Auswahl zu entfernen).`); return undefined; }
+    const aus = [];
+    wert.forEach((w, i) => {
+      if (!w || typeof w !== 'object' || typeof w.text !== 'string' || !w.text.trim() || typeof w.einheit !== 'string' || !w.einheit.trim()) { fehler.push(`${wo}[${i + 1}]: jede Möglichkeit braucht "text" und "einheit".`); return; }
+      aus.push({ text: w.text.trim(), einheit: w.einheit.trim() });
     });
     return aus;
   }
@@ -331,6 +356,34 @@ export function verarbeite(stateAlt, eintraege, optionen = {}) {
         p.art = alt ? 'ersetzt' : 'neu';
         p.felder = [{ feld: 'uebungen', alt: alt ? alt.map((u) => u.name).join(', ') : null, neu: e.uebungen.map(kurz).join(' · ') }];
         plan.einheiten[e.name] = e.uebungen;
+      }
+    } else if (e.typ === 'plantag') {
+      p.titel = `Wochenplan: ${WT_LANG[e.wochentag - 1]}${e.gueltig_ab ? ` (ab ${de(e.gueltig_ab)})` : ''}`;
+      const plan = state.einstellungen.plan;
+      const alt = plan.wochenplan[e.wochentag] || { typ: 'frei', text: '' };
+      const neu = structuredClone(alt);
+      if (e.art !== undefined) neu.typ = e.art;
+      if (e.einheit !== undefined) neu.einheit = e.einheit;
+      if (e.minuten !== undefined) neu.minuten = e.minuten;
+      if (e.text !== undefined) neu.text = e.text;
+      if (e.wahl !== undefined) { if (e.wahl.length) neu.wahl = e.wahl; else delete neu.wahl; }
+      if (neu.typ !== 'kraft' && neu.typ !== 'bonus') { delete neu.einheit; delete neu.wahl; }
+      if (neu.typ !== 'laufband') delete neu.minuten;
+      if ((neu.typ === 'kraft' || neu.typ === 'bonus') && !neu.einheit && neu.wahl) neu.einheit = neu.wahl[0].einheit;
+      const text = (x) => `${x.text || PLAN_ART_NAMEN[x.typ] || x.typ} [${PLAN_ART_NAMEN[x.typ] || x.typ}${x.einheit ? ': ' + x.einheit : ''}${x.minuten ? ', ' + x.minuten + ' Min.' : ''}]${x.wahl ? ' · Auswahl: ' + x.wahl.map((w) => `${w.text} → ${w.einheit}`).join(' / ') : ''}`;
+      if (gleich(alt, neu)) p.art = 'gleich';
+      else {
+        p.art = 'aenderung';
+        p.felder = [{ feld: 'plantag', alt: text(alt), neu: text(neu) }];
+        const fehlend = [...new Set([neu.einheit, ...(neu.wahl || []).map((w) => w.einheit)].filter((n) => n && !plan.einheiten[n]))];
+        if (fehlend.length) p.felder.push({ feld: 'hinweis', alt: null, neu: `Die Einheit ${fehlend.map((n) => `„${n}“`).join(', ')} gibt es im Plan noch nicht.` });
+        // Mit "gueltig_ab" werden frühere Tage weiter nach dem bisherigen Wochenplan bewertet.
+        if (e.gueltig_ab) {
+          const bis = plusTage(e.gueltig_ab, -1);
+          plan.wochenplanAlt = plan.wochenplanAlt || [];
+          if (bis >= (state.einstellungen.start || '') && !plan.wochenplanAlt.some((a) => a.bis >= bis)) plan.wochenplanAlt.push({ bis, wochenplan: structuredClone(plan.wochenplan) });
+        }
+        plan.wochenplan[e.wochentag] = neu;
       }
     } else if (e.typ === 'blutwert') {
       p.titel = `Blutwert ${e.name}, ${de(e.datum)}`;

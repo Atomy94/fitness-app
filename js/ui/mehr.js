@@ -293,7 +293,7 @@ function planScreen() {
     const typ = h('select', { onchange: () => {
       bewahreAltenPlan();
       eintrag.typ = typ.value;
-      if (typ.value === 'kraft' || typ.value === 'bonus') eintrag.einheit = eintrag.einheit || einheiten[0]; else delete eintrag.einheit;
+      if (typ.value === 'kraft' || typ.value === 'bonus') eintrag.einheit = eintrag.einheit || einheiten[0]; else { delete eintrag.einheit; delete eintrag.wahl; }
       if (typ.value === 'laufband') eintrag.minuten = eintrag.minuten || 30;
       eintrag.text = typ.value === 'kraft' ? eintrag.einheit : typ.value === 'bonus' ? `${eintrag.einheit} (Bonus)` : typ.value === 'laufband' ? 'Laufband 30 Min.' : typ.value === 'fussball' ? 'Hallenfußball' : 'Kein Trainingsziel';
       sichere();
@@ -301,12 +301,26 @@ function planScreen() {
     typ.value = eintrag.typ || 'frei';
     let einheit = null;
     if (eintrag.typ === 'kraft' || eintrag.typ === 'bonus') {
-      einheit = h('select', { onchange: () => { bewahreAltenPlan(); eintrag.einheit = einheit.value; sichere(); } }, einheiten.map((n) => h('option', { value: n }, n)));
+      einheit = h('select', { onchange: () => { bewahreAltenPlan(); eintrag.einheit = einheit.value; if (eintrag.wahl) eintrag.wahl[0].einheit = einheit.value; sichere(); } }, einheiten.map((n) => h('option', { value: n }, n)));
       einheit.value = eintrag.einheit;
+    }
+    // Zweite Einheit zur Auswahl: Die App fragt dann beim Start, welche es heute wird.
+    let auswahl = null;
+    if (einheit) {
+      const zweite = h('select', { onchange: () => {
+        bewahreAltenPlan();
+        if (!zweite.value) delete eintrag.wahl;
+        else eintrag.wahl = [{ text: (eintrag.wahl && eintrag.wahl[0].text) || 'Variante 1', einheit: eintrag.einheit }, { text: (eintrag.wahl && eintrag.wahl[1] && eintrag.wahl[1].text) || 'Variante 2', einheit: zweite.value }];
+        sichere();
+      } }, h('option', { value: '' }, 'keine zweite Einheit'), einheiten.filter((n) => n !== eintrag.einheit).map((n) => h('option', { value: n }, `oder: ${n}`)));
+      zweite.value = eintrag.wahl && eintrag.wahl[1] ? eintrag.wahl[1].einheit : '';
+      auswahl = h('div', { style: 'margin-top:6px' }, zweite,
+        eintrag.wahl ? h('div', { class: 'raster2', style: 'margin-top:6px' }, eintrag.wahl.slice(0, 2).map((w) => textFeld({ platzhalter: `Knopf für ${w.einheit}`, wert: w.text, onChange: (v) => { w.text = v || w.einheit; sichere(false); } }))) : null);
     }
     return h('div', { style: 'border-bottom:1px solid var(--rand);padding:8px 0' },
       h('b', null, WT_LANG[wt - 1]),
       h('div', { class: einheit ? 'raster2' : '', style: 'margin-top:4px' }, typ, einheit),
+      auswahl,
       h('div', { style: 'margin-top:6px' }, textFeld({ platzhalter: 'Anzeigetext', wert: eintrag.text, onChange: (v) => { eintrag.text = v; sichere(false); } })),
     );
   };

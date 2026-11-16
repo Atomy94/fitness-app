@@ -21,7 +21,8 @@ export function standardWochenplan() {
     3: { typ: 'frei', text: 'Kein Trainingsziel' },
     4: { typ: 'kraft', einheit: 'Kraft B', text: 'Kraft B' },
     5: { typ: 'laufband', minuten: 30, text: 'Laufband 30 Min.' },
-    6: { typ: 'bonus', einheit: 'Kraft C', text: 'Kraft C / Gym (Bonus)' },
+    // "wahl": beim Start fragt die App, welche Einheit es heute wird
+    6: { typ: 'bonus', einheit: 'Kraft C', text: 'Kraft C oder Studio (Bonus)', wahl: [{ text: 'Alleine', einheit: 'Kraft C' }, { text: 'Im Studio', einheit: 'Studio' }] },
     7: { typ: 'fussball', text: 'Hallenfußball' },
   };
 }
@@ -33,6 +34,7 @@ export function standardEinheiten() {
     'Kraft A': [u('Liegestütze', 3, '10', null, { schwer: { name: 'Liegestütze Füße erhöht', wdh: '6-10', notiz: 'Füße auf einem Stuhl' } }), u('Einarmiges Rudern', 3, '10-12', 14), u('Schulterdrücken', 3, '8-12', 12, { schwer: { name: 'Einarmiges Schulterdrücken', kg: 10 } }), u('Glute Bridge', 3, '12-15', 10), u('Dead Bug', 3, '10')],
     'Kraft B': [u('Goblet Squat', 3, '10-12', 16), u('Ausfallschritt rückwärts', 2, '10', 8), u('Rudern vorgebeugt', 3, '8-12', 20), u('Kreuzheben gestreckt', 3, '12', 20, { schwer: { name: 'Einbeiniges Kreuzheben', wdh: '8-12', kg: 10 } }), u('Seitstütz', 2, '', null, { sek: 40 })],
     'Kraft C': [u('Liegestütze', 3, '10'), u('Einarmiges Rudern', 3, '12', 14), u('Schulterdrücken', 2, '10', 12), u('Unterarmstütz', 2, '', null, { sek: 40 })],
+    Studio: [u('Klimmzüge mit Band', 4, ''), u('Dips', 4, ''), u('Liegestütze (Studio)', 4, '')],
   };
 }
 
@@ -98,5 +100,17 @@ export function trainingsAm(state, datum) {
 
 /** Vergleichsschlüssel für Übungsnamen ("Goblet Squat, Tempo 3-1-x" = "Goblet Squat (Tempo …)"). */
 export function uebungsSchluessel(name) {
-  return String(name || '').split(/[,(]/)[0].trim().toLowerCase();
+  return uebungsName(name).toLowerCase();
+}
+
+// Klammerzusätze, die nur ein Hinweis zur Ausführung sind und nicht zum Namen gehören:
+// "(Tempo 3-1-x)", "(je Seite)", "(nach Dips)", "(langsam …)", "(2 × 10 kg)".
+const HINWEIS_KLAMMER = /\s*\((?:tempo|je |nach |langsam|\d)[^)]*\)/gi;
+
+/**
+ * Name einer Übung ohne Ausführungshinweise: alles nach dem ersten Komma und Hinweis-Klammern fallen weg.
+ * Andere Klammern gehören zum Namen: "Liegestütze (Studio)" ist eine eigene Übung mit eigenem Verlauf.
+ */
+export function uebungsName(name) {
+  return String(name || '').split(',')[0].replace(HINWEIS_KLAMMER, '').replace(/\s+/g, ' ').trim();
 }

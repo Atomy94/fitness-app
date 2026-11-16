@@ -1,6 +1,18 @@
 // Kraft-Verlauf: Gewicht × Wiederholungen je Übung über alle Einheiten, mit Vergleich zur Vorgänger-Einheit.
 
-import { uebungsSchluessel } from './state.js';
+import { uebungsSchluessel, uebungsName } from './state.js';
+
+/**
+ * Nimmt eine während des Trainings hinzugefügte Übung dauerhaft in den Plan einer Einheit auf.
+ * Gibt es die Übung dort schon (auch als anspruchsvolle Version), passiert nichts. Rückgabe: wurde ergänzt?
+ */
+export function ergaenzePlanUebung(einheiten, einheit, uebung) {
+  const liste = einheiten[einheit] || (einheiten[einheit] = []);
+  const key = uebungsSchluessel(uebung.name);
+  if (!key || liste.some((u) => uebungsSchluessel(u.name) === key || (u.schwer && uebungsSchluessel(u.schwer.name) === key))) return false;
+  liste.push(uebung);
+  return true;
+}
 
 /** Kennzahlen einer Übung in einer Einheit. */
 export function kennzahlen(saetze) {
@@ -23,7 +35,7 @@ export function uebungsVerlaeufe(state) {
     for (const u of t.uebungen || []) {
       if (!u.saetze || !u.saetze.length) continue;
       const key = uebungsSchluessel(u.name);
-      if (!map.has(key)) map.set(key, { key, name: u.name.split(/[,(]/)[0].trim(), eintraege: [] });
+      if (!map.has(key)) map.set(key, { key, name: uebungsName(u.name), eintraege: [] });
       map.get(key).eintraege.push({ datum: t.datum, id: t.id, einheit: t.einheit, saetze: u.saetze, notiz: u.notiz || '', ...kennzahlen(u.saetze) });
     }
   }
