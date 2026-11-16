@@ -8,6 +8,8 @@ import { tagBewertung } from '../core/bewertung.js';
 import { ausHealthData } from '../core/erstimport.js';
 import { fmt } from '../core/zahl.js';
 import { planAuswahl } from '../core/ziele.js';
+import { abendVorschlag } from '../core/vorschlag.js';
+import { kcalStatus, eiweissStatus } from '../core/bewertung.js';
 import { deMitTag, stundeBerlin, diffTage } from '../core/datum.js';
 
 /** Liest eine gewählte health-data.json ein und ersetzt den Stand. */
@@ -43,6 +45,35 @@ function willkommen() {
       h('button', { type: 'button', class: 'knopf schmal', onclick: async () => { await wechsleModus('demo'); neu(); } }, 'Testdaten ansehen'),
       h('button', { type: 'button', class: 'knopf schmal', onclick: () => { S.state.einstellungen.eingerichtet = true; speichern('einstellungen'); neu(); } }, 'Ohne Import starten'),
     ),
+  );
+}
+
+/** Ab dem Abend: was heute noch fehlt und 1–2 passende Snacks aus der Liste in den Einstellungen. */
+function vorschlagKarte(b) {
+  const e = S.state.einstellungen;
+  if (stundeBerlin() < (e.vorschlagAbStunde ?? 20)) return null;
+  const v = abendVorschlag(b.tag, b.ziele, e.snacks);
+  if (v.status === 'keine_daten') return karte('Für heute noch', h('p', { class: 'klein' }, 'Noch keine Tageswerte aus Yazio. Sobald Kalorien und Eiweiß eingetragen sind, rechnet die App hier aus, was fehlt.'));
+  if (v.status === 'erreicht') return karte('Für heute noch', h('p', { class: 'fett', style: 'color:var(--gruen)' }, 'Ziele erreicht – heute nichts mehr nötig.'));
+  const zeile = (name, wert) => h('li', null, h('span', { class: 'wachs' }, name), h('b', null, wert));
+  return karte('Für heute noch',
+    h('ul', { class: 'liste' },
+      v.fehlt.kcal > 0 ? zeile('Fehlt bis zum grünen Bereich', `${fmt(v.fehlt.kcal)} kcal`) : null,
+      v.fehlt.eiweiss > 0 ? zeile(`Fehlt bis ${fmt(b.ziele.eiweiss.min)} g Eiweiß`, `${fmt(v.fehlt.eiweiss)} g`) : null,
+      zeile('Noch frei bis zur Obergrenze', `${fmt(v.frei.kcal)} kcal${v.frei.fett === null ? '' : ` · ${fmt(v.frei.fett, 1)} g Fett`}`),
+    ),
+    v.status === 'nichts_passt'
+      ? h('p', { class: 'klein abstand' }, 'Kein Snack aus deiner Liste passt mehr unter die Obergrenze.')
+      : v.liste.map((x, i) => h('div', { class: 'vorschlag' },
+        h('div', { class: 'unr' }, `Vorschlag ${i + 1}`),
+        h('b', null, x.snacks.map((s) => s.name).join(' + ')),
+        h('div', { class: 'klein' }, `+${fmt(x.kcal)} kcal · +${fmt(x.eiweiss)} g Eiweiß · +${fmt(x.fett, 1)} g Fett`),
+        h('div', { class: 'chips' },
+          h('span', { class: `chip marke s-${kcalStatus(x.danach.kcal, b.ziele.kcal)}` }, `danach ${fmt(x.danach.kcal)} kcal`),
+          h('span', { class: `chip marke s-${eiweissStatus(x.danach.eiweiss, b.ziele.eiweiss)}` }, `${fmt(x.danach.eiweiss)} g Eiweiß`)),
+        x.snacks.filter((s) => s.hinweis).map((s) => h('div', { class: 'klein', style: 'margin-top:4px' }, s.hinweis)),
+      )),
+    h('p', { class: 'klein abstand' }, 'Rein gerechnet aus deiner Snack-Liste (Mehr → Einstellungen). Gegessenes trägst du in Yazio ein.'),
   );
 }
 
@@ -131,6 +162,8 @@ function kopfTeil(d) {
   teile.push(h('div', { class: 'bereiche', style: 'margin-bottom:12px' },
     bereich('E', 'Ernährung', b.ernaehrung), bereich('T', 'Training', b.training, b.zusatz), bereich('S', 'Schritte', b.schritte)));
 
+  const vorschlag = bereit ? vorschlagKarte(b) : null;
+  if (vorschlag) teile.push(vorschlag);
   teile.push(planKarte(b, d));
   return teile;
 }

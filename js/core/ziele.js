@@ -46,6 +46,7 @@ const LISTE = {
   ballaststoffe_gelb_min: ['Weitere Werte', 'Ballaststoffe gelb ab', 'g', 25],
   ges_fett_max: ['Weitere Werte', 'Gesättigte Fette grün bis', 'g', 25],
   ges_fett_gelb_max: ['Weitere Werte', 'Gesättigte Fette gelb bis', 'g', 30],
+  fett_max: ['Weitere Werte', 'Fett höchstens (für die Abend-Vorschläge)', 'g', 75],
 
   bauch_start: ['Bauchumfang', 'Startwert', 'cm', 102],
   bauch_ziel: ['Bauchumfang', 'Zielwert', 'cm', 92],
@@ -148,6 +149,7 @@ export function tagesZiele(state, datum, fussball) {
     schritte: { ziel: minimal ? z('schritte_minimal') : z('schritte_ziel'), gelbPct: z('schritte_gelb_pct'), pflichtGrenze: z('schritte_pflicht_grenze') },
     ballaststoffe: { min: z('ballaststoffe_min'), gelbMin: z('ballaststoffe_gelb_min') },
     gesFett: { max: z('ges_fett_max'), gelbMax: z('ges_fett_gelb_max') },
+    fettMax: z('fett_max'),
     laufband: { min: z('laufband_min'), gelbMin: z('laufband_gelb_min') },
     spaziergangMin: z('spaziergang_min'),
     kcalWoche: { min: z('kcal_woche_min'), max: z('kcal_woche_max'), gelbMin: z('kcal_woche_gelb_min'), gelbMax: z('kcal_woche_gelb_max') },

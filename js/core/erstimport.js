@@ -6,6 +6,7 @@ import { parseZahl } from './zahl.js';
 import { standardZiele, setzeZiel } from './ziele.js';
 import { standardEinstellungen, standardWochenplan, neueId } from './state.js';
 import { rezepteAusArchiv } from './rezepte.js';
+import { quarkHinweis } from './vorschlag.js';
 
 // Laborwerte: Schlüssel aus der Datei → [deutscher Name, Einheit]
 const BLUT = {
@@ -75,7 +76,7 @@ export function ausHealthData(d, heuteIso) {
   if (nt.kcal) { setze('kcal_mo_sa_ziel', nt.kcal.mon_sat); setze('kcal_so_ziel', nt.kcal.sunday_with_football); }
   if (nt.protein_g) { setze('eiweiss_ziel', nt.protein_g.target); setze('eiweiss_min', nt.protein_g.min); }
   setze('ballaststoffe_min', nt.fiber_g_min);
-  if (nt.fat_g) setze('ges_fett_max', nt.fat_g.saturated_max);
+  if (nt.fat_g) { setze('ges_fett_max', nt.fat_g.saturated_max); setze('fett_max', nt.fat_g.max); }
   const bauch = d.goals && d.goals.targets && d.goals.targets.waist_cm;
   if (bauch) { setze('bauch_start', bauch.start); setze('bauch_ziel', bauch.target); }
 
@@ -88,6 +89,9 @@ export function ausHealthData(d, heuteIso) {
     info: [s.product, s.dose_g ? `${s.dose_g} g` : null, s.timing, s.status].filter(Boolean).join(' · '),
   }));
   e.eiweissUngenauBis = '2026-11-13';
+  // Tagesgrenze für Quark aus der Datei als Hinweis an den passenden Snack hängen.
+  // (Die App weiß nicht, was heute schon gegessen wurde – Essen wird in Yazio geloggt.)
+  quarkHinweis(e.snacks, nt.quark_max_g_per_day);
   e.archiv = {
     meta: d.meta, nutrition_targets: nt, foods_per_100g: d.foods_per_100g, standard_meals: d.standard_meals,
     tools: d.tools, movement_targets: d.movement_targets, health_notizen: d.health && { doctor: d.health.doctor_visit_2026_11_12, observations: d.health.observations },

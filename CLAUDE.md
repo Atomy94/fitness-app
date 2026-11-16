@@ -64,6 +64,7 @@ js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   eingang.js            Eingang verarbeiten: Auto-Importe je Datum auf die neueste Datei eindampfen, konfliktfrei nach erledigt/ verschieben, optional ohne Vorschau übernehmen
   claude-dateien.js     Inhalte für Claude: stand.md, rezepte.md, LIESMICH-fuer-Claude.md, Sicherung, Export
   rezepte.js            Kategorien, Nährwertfelder, Übernahme aus dem Archiv, Portion aus 100-g-Werten
+  vorschlag.js          Abend-Vorschläge „Für heute noch“ (rein rechnerisch), Startwerte der Snack-Liste
   kraft.js              Verlauf je Übung (Gewicht × Wdh.), Kennzahlen, Vergleich zur Vorgänger-Einheit
   demo.js               Testdaten (3 Wochen, erfunden)
 js/ui/                  Bildschirme, je ein Modul
@@ -71,7 +72,7 @@ js/ui/                  Bildschirme, je ein Modul
   heute.js  kalender.js  tag.js  training.js  fortschritt.js  mehr.js  rezepte.js (#rezepte, erreichbar über „Mehr“)
   symbole.js (eigene SVG-Symbole; uebungsArt(name) ordnet Übungen/Sportarten Symbol und Farbgruppe zu; kachel())
   cloud.js (#cloud, Claude-Verbindung)  vorschau.js (Import-Vorschau, von Einfüge-Import und Dropbox-Eingang benutzt)
-tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
+tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
 tools/                  server.mjs (Vorschau), make-icons.mjs
 ```
 
@@ -88,7 +89,7 @@ IndexedDB-Datenbank `fitness-app` (echte Daten) bzw. `fitness-app-demo` (Testdat
 | `messungen` | Liste, ein Eintrag je Datum+Quelle: `bauch_cm, koerperfett_pct, gewicht_kg, muskelmasse_kg, …, liegestuetze_max, kniebeugen_max, quelle, ungueltig, grund` |
 | `blutwerte` | Liste: `{ id, datum, name, wert, wert_text, einheit, norm_min, norm_max }` |
 | `ziele` | Liste: `{ id, schluessel, gueltig_ab, wert }` – Schlüssel siehe `ZIEL_INFO` / IMPORT-FORMAT.md |
-| `einstellungen` | `start, profil, phasen, minimal.zeitraeume[{von,bis}], minimalKraft, plan{maxMinuten, wochenplan{1..7: { typ, einheit, minuten, text, wahl:[{ text, einheit }] }}, wochenplanAlt[{bis, wochenplan}], einheiten{Name:[{ name, saetze, wdh, kg, kg_text, sek, pause_sek, notiz, schwer:{ name, wdh, kg, sek, saetze, pause_sek, notiz } }]}, progression}, zielpfad{von,bis}, pauseSek, autoImportOhneVorschau, supplements, letzteSicherung, eingerichtet, archiv` |
+| `einstellungen` | `start, profil, phasen, minimal.zeitraeume[{von,bis}], minimalKraft, plan{maxMinuten, wochenplan{1..7: { typ, einheit, minuten, text, wahl:[{ text, einheit }] }}, wochenplanAlt[{bis, wochenplan}], einheiten{Name:[{ name, saetze, wdh, kg, kg_text, sek, pause_sek, notiz, schwer:{ name, wdh, kg, sek, saetze, pause_sek, notiz } }]}, progression}, zielpfad{von,bis}, pauseSek, snacks:[{ id, name, kcal, eiweiss_g, fett_g, hinweis }], vorschlagAbStunde, autoImportOhneVorschau, supplements, letzteSicherung, eingerichtet, archiv` |
 | `checkins` | Objekt je Montag: `{ verdauung, besonderheiten }` |
 | `rezepte` | Liste: `{ id, name, kategorie (Frühstück/Mittagessen/Abendessen/Snacks), bezug:'portion'|'100g', portion, zutaten:[{ name, menge }], kcal, eiweiss_g, kh_g, fett_g, ges_fett_g, zucker_g, ballaststoffe_g, salz_g, notiz }`. Fehlt die Sammlung (Stand aus 1.0), baut `ergaenze()` sie aus `einstellungen.archiv`. |
 | `entwurf` | laufendes Training (nicht Teil der Sicherung): Übungen mit Sätzen, `startMs`, `angehaltenSeit`, `angehaltenMs` (angehaltene Zeit zählt nicht zur Dauer), `pauseBis` (Satzpause) |
@@ -114,6 +115,14 @@ Status: `gruen` geschafft · `gelb` knapp · `rot` verfehlt · `grau` trifft nic
 - **Regel 15 Uhr:** ab 15:00 und Schritte unter `schritte_pflicht_grenze` → „Laufband heute Abend: Pflicht“.
 - **Gewicht:** Hauptlinie ist der 7-Tage-Schnitt (`gleitSchnitt`). **Bauchumfang** ist die Hauptkennzahl, mit linearem Zielpfad.
 - Schlaf und Stress werden erfasst und angezeigt, nicht bewertet.
+
+## Abend-Vorschläge „Für heute noch“ (seit 1.8)
+
+- Ab `einstellungen.vorschlagAbStunde` (Startwert 20 Uhr, Berliner Zeit) zeigt „Heute“ die Karte. Umsetzung: `abendVorschlag()` in `js/core/vorschlag.js`, ohne KI.
+- **Fehlt:** Kalorien bis zum unteren Rand des grünen Korridors des Tages (`kcal.min`, also auch Fußballtag/Minimalversion) und Eiweiß bis `eiweiss_min`. **Frei:** Kalorien bis `kcal.max` und Fett bis `fett_max` (nur wenn für heute ein Fettwert vorliegt).
+- **Auswahl:** Kandidaten sind jeder Snack einzeln und jedes Paar aus zwei verschiedenen Snacks. Kein Kandidat darf über die Obergrenze des Korridors oder die Fettgrenze führen. Fehlt Eiweiß, gewinnt, was die Eiweißlücke am besten schließt (dann Kalorienlücke, dann weniger Snacks, dann weniger Kalorien). Fehlen nur Kalorien, gewinnen die kalorienreicheren. Gezeigt werden höchstens zwei Vorschläge mit dem Stand danach.
+- Zustände: keine Tageswerte, „Ziele erreicht – heute nichts mehr nötig.“, Vorschläge, oder „kein Snack passt mehr“.
+- **Snack-Liste** liegt in `einstellungen.snacks`, bearbeitbar unter Mehr → Einstellungen. Tagesgrenzen wie „Quark höchstens 250 g“ werden nur als `hinweis` am Snack angezeigt: Die App weiß nicht, was heute schon gegessen wurde.
 
 ## Claude-Import (exakt so)
 

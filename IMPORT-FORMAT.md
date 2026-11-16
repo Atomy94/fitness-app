@@ -115,6 +115,7 @@ Tage **vor** `gueltig_ab` werden weiter mit dem alten Wert bewertet.
 | `spaziergang_min` | Spaziergang als Fußball-Ersatz ab (Min.) | 45 |
 | `ballaststoffe_min` / `ballaststoffe_gelb_min` | grün ab / gelb ab | 30 / 25 |
 | `ges_fett_max` / `ges_fett_gelb_max` | grün bis / gelb bis | 25 / 30 |
+| `fett_max` | Fett höchstens pro Tag (für die Abend-Vorschläge, ab 1.8) | 75 |
 | `bauch_start` / `bauch_ziel` | Bauchumfang Start / Ziel (cm) | 102 / 92 |
 
 Ein unbekannter Schlüssel ist ein Fehler (die Meldung listet alle erlaubten Schlüssel).

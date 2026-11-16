@@ -257,8 +257,28 @@ function einstellungenScreen() {
     h('p', { class: 'klein' }, 'Start- und Zielwert stehen unten in der Gruppe „Bauchumfang“.'),
   );
 
+  const snackListe = e.snacks || (e.snacks = []);
+  const snackZeile = (s, i) => h('div', { style: 'border-bottom:1px solid var(--rand);padding:8px 0' },
+    h('div', { class: 'zeile' },
+      h('div', { class: 'wachs' }, textFeld({ platzhalter: 'Snack (mit Menge)', wert: s.name, onChange: (v) => { s.name = v; speichern('einstellungen'); } })),
+      h('button', { type: 'button', class: 'knopf schmal gefahr', 'aria-label': 'Snack löschen', onclick: () => { if (confirm(`„${s.name || 'Snack'}“ aus der Liste entfernen?`)) { snackListe.splice(i, 1); sichere(); } } }, '✕'),
+    ),
+    h('div', { class: 'planfelder', style: 'grid-template-columns:repeat(3,minmax(0,1fr))' },
+      zahlFeld({ label: 'kcal', wert: s.kcal ?? null, min: 0, max: 5000, onChange: (v) => { s.kcal = v ?? 0; speichern('einstellungen'); } }),
+      zahlFeld({ label: 'Eiweiß g', wert: s.eiweiss_g ?? null, min: 0, max: 500, onChange: (v) => { s.eiweiss_g = v ?? 0; speichern('einstellungen'); } }),
+      zahlFeld({ label: 'Fett g', wert: s.fett_g ?? null, min: 0, max: 500, onChange: (v) => { s.fett_g = v ?? 0; speichern('einstellungen'); } }),
+    ),
+    textFeld({ platzhalter: 'Hinweis (z. B. Tagesgrenze), optional', wert: s.hinweis, onChange: (v) => { if (v) s.hinweis = v; else delete s.hinweis; speichern('einstellungen'); } }),
+  );
+  const snacks = karte('Snack-Liste für die Abend-Vorschläge',
+    h('p', { class: 'klein' }, 'Ab der eingestellten Uhrzeit zeigt „Heute“, was noch fehlt, und schlägt 1–2 dieser Snacks vor. Kein Vorschlag führt über die Obergrenze des Kalorien-Korridors.'),
+    zahlFeld({ label: 'Vorschläge ab', einheit: 'Uhr', wert: e.vorschlagAbStunde ?? 20, ganz: true, min: 0, max: 23, onChange: (v) => { e.vorschlagAbStunde = v ?? 20; speichern('einstellungen'); } }),
+    snackListe.map(snackZeile),
+    h('button', { type: 'button', class: 'knopf schmal breit abstand', onclick: () => { snackListe.push({ id: neueId(), name: '', kcal: 0, eiweiss_g: 0, fett_g: 0 }); sichere(); } }, '+ Snack'),
+  );
+
   return { titel: 'Einstellungen', zurueck, knoten: h('div', null,
-    minimal, phasen, pfad,
+    minimal, phasen, pfad, snacks,
     h('p', { class: 'klein', style: 'margin:4px 4px 8px' }, 'ZIELE UND GRENZWERTE – Änderungen gelten ab dem gewählten Datum. Vergangene Tage werden weiter mit dem alten Wert bewertet.'),
     [...gruppen].map(([name, keys]) => karte(name, h('ul', { class: 'liste' }, keys.map((k) => zielZeile(k, d))),
       name === 'Schritte' ? h('p', { class: 'klein abstand' }, 'Die Phasen (5.000 → 7.000 → 8.000) sind mehrere Einträge beim „Tagesziel (Phase)“ mit unterschiedlichem Datum.') : null)),

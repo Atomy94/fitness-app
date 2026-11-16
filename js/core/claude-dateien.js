@@ -57,6 +57,7 @@ export function exportDaten(state, heuteIso, tageZahl) {
     messungen: [...state.messungen].sort(nachDatum).map(ohneId),
     blutwerte: [...state.blutwerte].sort(nachDatum).map(ohneId),
     supplements: e.supplements || [],
+    snacks: e.snacks || [],
   };
 }
 

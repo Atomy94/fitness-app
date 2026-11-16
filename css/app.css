@@ -313,3 +313,8 @@ pre.block { white-space: pre-wrap; word-break: break-word; font: 12px/1.4 ui-mon
 .satz.fertig .ok .sym { color: #fff; }
 
 .bereich { color: var(--text); }
+
+/* Abend-Vorschläge auf "Heute" */
+.vorschlag { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--feld); }
+.vorschlag .unr { color: var(--text2); }
+.chip.marke { border-width: 1px; }

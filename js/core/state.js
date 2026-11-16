@@ -5,6 +5,7 @@ import { standardZiele } from './ziele.js';
 import { plusTage, montag } from './datum.js';
 
 import { rezepteAusArchiv } from './rezepte.js';
+import { standardSnacks, quarkHinweis } from './vorschlag.js';
 
 export const SAMMLUNGEN = ['tage', 'trainings', 'messungen', 'blutwerte', 'ziele', 'einstellungen', 'checkins', 'rezepte'];
 
@@ -48,6 +49,8 @@ export function standardEinstellungen(start) {
     plan: { maxMinuten: 30, wochenplan: standardWochenplan(), einheiten: standardEinheiten(), progression: '' },
     zielpfad: { von: start, bis: plusTage(start, 203) }, // Bauchumfang: linear von Start- auf Zielwert
     pauseSek: 60,
+    snacks: standardSnacks(), // Snack-Liste für die Abend-Vorschläge auf "Heute"
+    vorschlagAbStunde: 20, // ab dieser Uhrzeit erscheint die Karte "Für heute noch"
     autoImportOhneVorschau: false, // Auto-Importe des Kurzbefehls ohne Vorschau übernehmen (siehe core/eingang.js)
     supplements: [],
     letzteSicherung: null,
@@ -77,7 +80,9 @@ export function ergaenze(state, heuteIso) {
   if (!Array.isArray(state.rezepte)) state.rezepte = rezepteAusArchiv(state.einstellungen && state.einstellungen.archiv);
   for (const s of SAMMLUNGEN) if (state[s] === undefined || state[s] === null) state[s] = leer[s];
   const e = state.einstellungen;
+  const snacksNeu = e.snacks === undefined; // Stand aus einer Version vor 1.8
   for (const [k, v] of Object.entries(leer.einstellungen)) if (e[k] === undefined) e[k] = v;
+  if (snacksNeu) quarkHinweis(e.snacks, e.archiv && e.archiv.nutrition_targets && e.archiv.nutrition_targets.quark_max_g_per_day);
   if (!e.plan.wochenplan) e.plan.wochenplan = standardWochenplan();
   if (!e.plan.einheiten) e.plan.einheiten = standardEinheiten();
   if (!e.minimal.zeitraeume) e.minimal.zeitraeume = [];
