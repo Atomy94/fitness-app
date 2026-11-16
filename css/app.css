@@ -350,3 +350,9 @@ pre.block { white-space: pre-wrap; word-break: break-word; font: 12px/1.4 ui-mon
 .tjoker { position: absolute; top: 2px; right: 2px; line-height: 0; color: var(--akzent); }
 .tjoker .sym { width: 11px; height: 11px; fill: currentColor; stroke-width: 1; }
 .tjoker.fest { position: static; display: inline-block; vertical-align: middle; margin-right: 3px; }
+
+/* Bestwerte */
+.satz.rekord .ok { background: #d99a00; border-color: #d99a00; }
+.rekordzeile { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: #b98200; margin-top: 2px; }
+@media (prefers-color-scheme: dark) { .rekordzeile { color: #f2c230; } }
+.rekordzeile .sym { width: 15px; height: 15px; }

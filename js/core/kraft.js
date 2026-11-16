@@ -42,6 +42,69 @@ export function uebungsVerlaeufe(state) {
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'de'));
 }
 
+// ---------- Bestwerte ----------
+
+/** "16 kg × 12", "15 Wdh." oder "40 Sek." */
+export function satzAnzeige(satz) {
+  if (satz.sek !== undefined && satz.wdh === undefined) return `${satz.sek} Sek.`;
+  const kg = satz.kg || 0;
+  return kg > 0 ? `${String(kg).replace('.', ',')} kg × ${satz.wdh ?? 0}` : `${satz.wdh ?? 0} Wdh.`;
+}
+
+/**
+ * Ist dieser Satz ein neuer Bestwert gegenüber allen früheren Sätzen derselben Übung?
+ * Mit Gewicht (in dieser Reihenfolge geprüft):
+ *   'gewicht'  mehr Gewicht als je zuvor bei mindestens so vielen Wiederholungen
+ *   'wdh'      mehr Wiederholungen als je zuvor bei diesem Gewicht
+ *   'volumen'  der höchste Satz (kg × Wiederholungen)
+ * Ohne Gewicht zählen die Wiederholungen ('wdh') bzw. die Sekunden ('zeit').
+ * Ohne frühere Sätze gibt es keinen Rekord (der allererste Satz ist kein "neuer" Bestwert).
+ * Ergebnis: null oder { art, text }
+ */
+export function rekord(satz, fruehere) {
+  const alt = (fruehere || []).filter(Boolean);
+  if (!satz || !alt.length) return null;
+  const aus = (art) => ({ art, text: satzAnzeige(satz) });
+  const max = (liste, f) => liste.reduce((m, p) => Math.max(m, f(p)), -Infinity);
+
+  if (satz.sek !== undefined && satz.wdh === undefined) {
+    const zeiten = alt.filter((p) => typeof p.sek === 'number');
+    return zeiten.length && satz.sek > max(zeiten, (p) => p.sek) ? aus('zeit') : null;
+  }
+  const wdh = satz.wdh || 0;
+  const kg = satz.kg || 0;
+  if (wdh <= 0) return null;
+  const mitWdh = alt.filter((p) => typeof p.wdh === 'number');
+  if (kg > 0) {
+    const mindestensSoViele = mitWdh.filter((p) => p.wdh >= wdh);
+    if (mindestensSoViele.length && kg > max(mindestensSoViele, (p) => p.kg || 0)) return aus('gewicht');
+    const gleichesGewicht = mitWdh.filter((p) => (p.kg || 0) === kg);
+    if (gleichesGewicht.length && wdh > max(gleichesGewicht, (p) => p.wdh)) return aus('wdh');
+    const mitGewicht = mitWdh.filter((p) => (p.kg || 0) > 0);
+    if (mitGewicht.length && kg * wdh > max(mitGewicht, (p) => p.kg * p.wdh)) return aus('volumen');
+    return null;
+  }
+  const ohneGewicht = mitWdh.filter((p) => !(p.kg > 0));
+  return ohneGewicht.length && wdh > max(ohneGewicht, (p) => p.wdh) ? aus('wdh') : null;
+}
+
+/**
+ * Markiert in einem Übungsverlauf (älteste Einheit zuerst) die Sätze, die damals ein neuer Bestwert waren.
+ * Ergebnis: je Eintrag { ...eintrag, rekorde: [{ art, text, satz }] }. Die erste Einheit hat nie Rekorde.
+ */
+export function markiereRekorde(eintraege) {
+  const bisher = [];
+  return eintraege.map((e, i) => {
+    const rekorde = [];
+    for (const satz of e.saetze || []) {
+      const r = i > 0 ? rekord(satz, bisher) : null;
+      if (r) rekorde.push({ ...r, satz });
+      bisher.push(satz);
+    }
+    return { ...e, rekorde };
+  });
+}
+
 const vz = (n) => `${n > 0 ? '+' : '−'}${String(Math.abs(Math.round(n * 10) / 10)).replace('.', ',')}`;
 
 /**

@@ -7,9 +7,9 @@ import { symbol, kachel, uebungsArt } from './symbole.js';
 import { tagBewertung } from '../core/bewertung.js';
 import { einheitText } from './tag.js';
 import { minimalAktiv, planTag, planAuswahl } from '../core/ziele.js';
-import { neueId, uebungsSchluessel, tagVon } from '../core/state.js';
+import { neueId, uebungsSchluessel, uebungsName, tagVon } from '../core/state.js';
 import { fmt } from '../core/zahl.js';
-import { uebungsVerlaeufe, vergleich, variante, zuletztSchwer, ergaenzePlanUebung } from '../core/kraft.js';
+import { uebungsVerlaeufe, vergleich, variante, zuletztSchwer, ergaenzePlanUebung, rekord, markiereRekorde } from '../core/kraft.js';
 import { pausenSignal } from '../core/signal.js';
 import { wachhalter } from '../core/wach.js';
 
@@ -508,7 +508,7 @@ function startScreen(einheit, datumArg) {
     const zeichne = () => zeilen.replaceChildren(
       h('div', { class: `satz ${u.zeit ? 'zeit' : ''}` }, h('span'), u.zeit ? h('span', { class: 'satzkopf' }, 'Sekunden') : [h('span', { class: 'satzkopf' }, 'kg'), h('span'), h('span', { class: 'satzkopf' }, 'Wdh.')], h('span')),
       ...u.saetze.map((x, i) => {
-        const zeile = h('div', { class: `satz ${u.zeit ? 'zeit' : ''} ${x.fertig ? 'fertig' : ''}` },
+        const zeile = h('div', { class: `satz ${u.zeit ? 'zeit' : ''} ${x.fertig ? 'fertig' : ''} ${x.rekord && x.fertig ? 'rekord' : ''}` },
           h('span', { class: 'nr' }, i + 1),
           u.zeit
             ? zahlFeld({ wert: x.sek, min: 0, max: 36000, onChange: (v) => { x.sek = v; sichern(); } })
@@ -523,6 +523,18 @@ function startScreen(einheit, datumArg) {
             x.fertig = !x.fertig;
             zeile.classList.toggle('fertig', x.fertig);
             zeichnePips();
+            // Neuer Bestwert? Verglichen wird mit allen früheren Einheiten und den schon bestätigten Sätzen von heute.
+            x.rekord = false;
+            if (x.fertig) {
+              const key = uebungsSchluessel(u.name);
+              const frueher = S.state.trainings.filter((t) => t.typ === 'kraft' && !(t.datum === en.datum && t.einheit === en.einheit))
+                .flatMap((t) => (t.uebungen || []).filter((v) => uebungsSchluessel(v.name) === key).flatMap((v) => v.saetze || []));
+              if (frueher.length) {
+                const r = rekord(u.zeit ? { sek: x.sek } : { kg: x.kg || 0, wdh: x.wdh }, [...frueher, ...u.saetze.filter((y) => y !== x && y.fertig).map((y) => (u.zeit ? { sek: y.sek } : { kg: y.kg || 0, wdh: y.wdh }))]);
+                if (r) { x.rekord = true; meldung(`Neuer Rekord: ${uebungsName(u.name)} ${r.text}`); }
+              }
+            }
+            zeile.classList.toggle('rekord', !!x.rekord);
             if (x.fertig && live && !en.angehaltenSeit) { tonBereit(); startePause(u.pauseSek ?? standardPause()); tick(); }
             sichern();
           } }, symbol('haken')),
@@ -696,7 +708,8 @@ function einheitScreen(id) {
 function uebungScreen(key) {
   const verlauf = uebungsVerlaeufe(S.state).find((v) => v.key === key);
   if (!verlauf) return { titel: 'Übung', zurueck: 'training', knoten: h('p', { class: 'leer' }, 'Für diese Übung gibt es noch keine Einträge.') };
-  const { eintraege, name } = verlauf;
+  const { name } = verlauf;
+  const eintraege = markiereRekorde(verlauf.eintraege);
   const alle = eintraege.flatMap((e) => e.saetze);
   const art = alle.some((x) => x.kg > 0) ? 'kg' : alle.some((x) => x.wdh !== undefined) ? 'wdh' : 'sek';
   const wert = (x) => (art === 'kg' ? (x.kg || 0) * (x.wdh || 0) : art === 'wdh' ? x.wdh || 0 : x.sek || 0);
@@ -715,7 +728,8 @@ function uebungScreen(key) {
       const vor = liste[i + 1];
       return h('a', { href: `#training/einheit/${e.id}` },
         h('span', { style: 'width:52px;flex:none;color:var(--text2);font-size:14px' }, deKurz(e.datum)),
-        h('span', { class: 'wachs' }, h('b', null, satzText(e.saetze)), e.notiz ? h('div', { class: 'klein' }, e.notiz) : null),
+        h('span', { class: 'wachs' }, h('b', null, satzText(e.saetze)), e.notiz ? h('div', { class: 'klein' }, e.notiz) : null,
+          e.rekorde.length ? h('div', { class: 'rekordzeile' }, symbol('pokal'), `Rekord: ${[...new Set(e.rekorde.map((r) => r.text))].join(', ')}`) : null),
         vor ? trendMarke(vergleich(vor, e)) : null,
         h('span', { class: 'pfeil' }, '›'));
     }))),
