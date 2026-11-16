@@ -4,7 +4,7 @@ import { plusTage, wochenTage, de, kw } from './datum.js';
 import { fmt, runde } from './zahl.js';
 import { wochenWertung, schnitt, fussballGespielt, GRUEN } from './bewertung.js';
 import { planTag } from './ziele.js';
-import { wochenProzent } from './wertung.js';
+import { wochenProzent, streak } from './wertung.js';
 
 export function wochenWerte(state, mo, heuteIso) {
   const tage = wochenTage(mo);
@@ -47,6 +47,7 @@ export function wochenWerte(state, mo, heuteIso) {
     schlaf: feld('schlaf_h'), schlafQualitaet: feld('schlaf_qualitaet'), stress: feld('stress'),
     wertung,
     prozent: wochenProzent(state, mo, heuteIso),
+    streak: streak(state, heuteIso),
     minimal: wertung.tage.some((t) => t.minimal),
     ungenau: tage.some((d) => state.tage[d] && state.tage[d].ungenau),
   };
@@ -70,6 +71,7 @@ export function checkinZeilen(w) {
     ['Schlaf Ø', w.schlaf === null ? '–' : `${fmt(w.schlaf, 1)} Std.${w.schlafQualitaet === null ? '' : ', Qualität ' + fmt(w.schlafQualitaet, 1) + ' von 5'}`],
     ['Stress Ø', w.stress === null ? '–' : `${fmt(w.stress, 1)} von 10`],
     ['Wochenwertung', w.prozent.prozent === null ? '–' : `${fmt(w.prozent.prozent)} %${w.prozent.vorlaeufig ? ' (vorläufig)' : ''} aus ${w.prozent.anzahl} ${w.prozent.anzahl === 1 ? 'gewerteten Tag' : 'gewerteten Tagen'} · Ernährung ${fmt(w.prozent.bereiche.ernaehrung)} % · Training ${fmt(w.prozent.bereiche.training)} % · Schritte ${fmt(w.prozent.bereiche.schritte)} %`],
+    ['Streak', `${w.streak.aktuell} gute Tage in Folge (längster ${w.streak.laengster})`],
     ['Wertung Ernährung', `${wt.ernaehrung.x} von 7 Tagen`],
     ['Wertung Training', `${wt.training.x} von ${wt.training.von} Plantagen`],
     ['Wertung Schritte', `${wt.schritte.x} von 7 Tagen`],

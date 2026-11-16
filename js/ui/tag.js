@@ -3,7 +3,7 @@
 import { S, speichern, heuteIso } from '../store.js';
 import { h, karte, zahlFeld, textFeld, wahl, punkt, marke, STATUS_TEXT } from './dom.js';
 import { tagBewertung } from '../core/bewertung.js';
-import { tagWertung } from '../core/wertung.js';
+import { tagWertung, streak } from '../core/wertung.js';
 import { wertungBlock } from './wertung.js';
 import { tagVon, neueId } from '../core/state.js';
 import { fmt } from '../core/zahl.js';
@@ -141,6 +141,7 @@ export function tagScreen([datum]) {
     const bw = tagBewertung(S.state, datum, heuteIso());
     oben.replaceChildren(
       karte('Tageswertung', wertungBlock({ prozent: w.prozent, bereiche: w.bereiche, schwelle: w.schwelle, vorlaeufig: w.vorlaeufig && w.gewertet, status: { ernaehrung: bw.ernaehrung, training: bw.training, schritte: bw.schritte }, leerText: datum > heuteIso() ? 'liegt in der Zukunft' : 'ohne Ernährungsdaten nicht gewertet' })),
+      streak(S.state, heuteIso()).joker.includes(datum) ? h('div', { class: 'hinweis ruhig' }, h('b', null, 'Joker-Tag'), h('small', null, 'Kein guter Tag, aber der eine Joker der Woche hat den Streak gehalten. Der Tag zählt nicht mit.')) : null,
       ...bereicheDetail(datum),
     );
   };

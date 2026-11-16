@@ -3,24 +3,28 @@
 import { S, heuteIso, neu } from '../store.js';
 import { h, karte, punkt, marke, diagramm, STATUS_ZEICHEN } from './dom.js';
 import { tagBewertung, wochenWertung } from '../core/bewertung.js';
-import { tagWertung, wochenProzent, wochenVerlauf } from '../core/wertung.js';
+import { tagWertung, wochenProzent, wochenVerlauf, streak } from '../core/wertung.js';
+import { symbol } from './symbole.js';
 import { wertungBlock, wertungStatus } from './wertung.js';
 import { fmt } from '../core/zahl.js';
 import { MONATE, WT_KURZ, monatsRaster, montag, plusTage, deKurz, kw } from '../core/datum.js';
 
 const BEREICHE = [['alle', 'Alle'], ['ernaehrung', 'Ernährung'], ['training', 'Training'], ['schritte', 'Schritte']];
 const sicht = { jahr: null, monat: null, filter: 'alle' };
+let jokerTage = new Set(); // Tage, an denen der Wochen-Joker den Streak gerettet hat
 
 function tagZelle(datum, imMonat, heuteD) {
   const b = tagBewertung(S.state, datum, heuteD);
   const w = tagWertung(S.state, datum, heuteD);
   const nr = Number(datum.slice(8));
   const klassen = ['tagz', imMonat ? '' : 'fremd', datum === heuteD ? 'heute' : ''];
+  const jokerMarke = jokerTage.has(datum) ? h('span', { class: 'tjoker', title: 'Joker-Tag' }, symbol('joker')) : null;
   if (sicht.filter === 'alle') {
     return h('a', { class: klassen.join(' '), href: `#tag/${datum}` },
       h('span', { class: 'nr' }, nr),
       w.gewertet ? h('span', { class: `tpct wert-s s-${wertungStatus(w.prozent, w.schwelle)}` }, `${fmt(w.prozent)}${w.vorlaeufig ? '*' : ''}`) : h('span', { class: 'tpct' }, ''),
       h('span', { class: 'dreier' }, punkt(b.ernaehrung, 'E'), punkt(b.training, 'T', b.zusatz), punkt(b.schritte, 'S')),
+      jokerMarke,
     );
   }
   const status = b[sicht.filter];
@@ -28,6 +32,7 @@ function tagZelle(datum, imMonat, heuteD) {
   return h('a', { class: [...klassen, 'voll', `s-${status}`].join(' '), href: `#tag/${datum}` },
     h('span', { class: 'nr' }, nr),
     h('span', { class: 'zeichen' }, stern ? '★' : STATUS_ZEICHEN[status]),
+    jokerMarke,
   );
 }
 
@@ -76,6 +81,8 @@ export function kalenderScreen() {
     if (m < 1) { m = 12; j--; } else if (m > 12) { m = 1; j++; }
     sicht.monat = m; sicht.jahr = j; neu();
   };
+  const serie = streak(S.state, heuteD);
+  jokerTage = new Set(serie.joker);
   const raster = monatsRaster(sicht.jahr, sicht.monat);
   const praefix = `${sicht.jahr}-${String(sicht.monat).padStart(2, '0')}`;
   const wochen = raster.map((w) => wochenWertung(S.state, w[0], heuteD));
@@ -96,11 +103,12 @@ export function kalenderScreen() {
       ),
       h('div', { class: 'legende' },
         h('span', null, punkt('gruen', '✓'), 'geschafft'), h('span', null, punkt('gelb', '≈'), 'knapp'), h('span', null, punkt('rot', '✕'), 'verfehlt'),
-        h('span', null, punkt('grau', '–'), 'trifft nicht zu'), h('span', null, punkt('leer', ''), 'keine Daten'), h('span', null, '★ Zusatztraining'),
+        h('span', null, punkt('grau', '–'), 'trifft nicht zu'), h('span', null, punkt('leer', ''), 'keine Daten'), h('span', null, '★ Zusatztraining'), h('span', null, h('span', { class: 'tjoker fest' }, symbol('joker')), 'Joker-Tag'),
         sicht.filter === 'alle' ? h('span', null, 'E = Ernährung · T = Training · S = Schritte · Zahl = Tageswertung in % (* = vorläufig)') : null,
       ),
     ),
     karte('Diese Woche',
+      h('p', { class: 'klein', style: 'margin-bottom:10px' }, h('b', null, `Streak: ${serie.aktuell} ${serie.aktuell === 1 ? 'guter Tag' : 'gute Tage'} in Folge`), ` · längster ${serie.laengster} · Joker ${serie.jokerFrei ? 'noch frei' : 'verbraucht'}`),
       wertungBlock({ prozent: dieseProzent.prozent, bereiche: dieseProzent.bereiche, schwelle: dieseProzent.schwelle, vorlaeufig: dieseProzent.vorlaeufig, unter: `${dieseProzent.anzahl} ${dieseProzent.anzahl === 1 ? 'gewerteter Tag' : 'gewertete Tage'}`, leerText: 'noch kein gewerteter Tag' }),
       h('ul', { class: 'liste abstand' },
         h('li', null, punkt('grau', 'E'), h('span', { class: 'wachs' }, 'Ernährung'), h('b', null, `${diese.ernaehrung.x} von 7 Tagen`)),

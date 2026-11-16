@@ -74,7 +74,7 @@ js/ui/                  Bildschirme, je ein Modul
   symbole.js (eigene SVG-Symbole; uebungsArt(name) ordnet Übungen/Sportarten Symbol und Farbgruppe zu; kachel())
   wertung.js (Anzeige der Wertung: große Zahl + drei Bereichsbalken)
   cloud.js (#cloud, Claude-Verbindung)  vorschau.js (Import-Vorschau, von Einfüge-Import und Dropbox-Eingang benutzt)
-tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), wertung (Tages- und Wochenwertung), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
+tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), wertung (Tages- und Wochenwertung, Wochendiagramm), streak (Streak mit Joker), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
 tools/                  server.mjs (Vorschau), make-icons.mjs
 ```
 
@@ -131,6 +131,14 @@ Zusätzlich zu den Farbstatus der drei Bereiche. Pro Tag 0–100 %, nie mehr.
 - **Guter Tag** = mindestens `wertung_guter_tag` (Startwert 80 %).
 - Gewichte und Grenzen stehen als Ziele mit `gueltig_ab` in den Daten: `wertung_kcal_pct`, `wertung_eiweiss_pct`, `wertung_training_pct`, `wertung_schritte_pct`, `wertung_kcal_null_abstand`, `wertung_guter_tag` (Mehr → Einstellungen → Tageswertung).
 - **Anzeige** (`wertungBlock()` in `js/ui/wertung.js`): groß die Prozentzahl, darunter immer die drei Bereiche als Balken. Auf „Heute“ und in der Tagesansicht zeigt der Punkt vor dem Balken den Farbstatus des Bereichs, der Balken selbst ist neutral. Im Kalender: Zahl je Tag im Monatsraster (`*` = vorläufig), Wochenwertung in „Diese Woche“ und in der Wochentabelle. Auch im Check-in und im Export (`wertung_pct`).
+
+### Streak mit Joker (seit 1.11, `streak()` in `js/core/wertung.js`)
+
+- **Streak** = gute Tage in Folge (guter Tag: Tageswertung ab `wertung_guter_tag`). Gezählt wird ab `einstellungen.start`. Der längste Streak wird jedes Mal aus dem Verlauf berechnet, nicht gespeichert.
+- **Joker:** Pro Kalenderwoche (Mo–So) darf ein Tag schwach sein. Er zählt nicht mit, der Streak bleibt. Jeder weitere schwache Tag derselben Woche setzt den Streak auf 0. Der erste schwache Tag der Woche verbraucht die Ausnahme auch dann, wenn gerade kein Streak lief (im Kalender ist er dann nicht als Joker markiert).
+- **Tage ohne Ernährungsdaten** sind schwache Tage.
+- **Heute** kann den Streak erst beenden, wenn der Tag vorbei ist: schon gut → zählt mit; noch schwach → bleibt außen vor und verbraucht keinen Joker.
+- **Anzeige:** auf „Heute“ in der Karte „Tageswertung“ (Flamme, Anzahl, längster Streak, Stand des Jokers), im Kalender als Stern-Symbol am Joker-Tag und in „Diese Woche“, in der Tagesansicht als Hinweis, im Check-in als Zeile.
 
 ### Diagramm „Verlauf der Wochenwertungen“ (seit 1.10)
 

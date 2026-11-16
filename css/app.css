@@ -339,3 +339,14 @@ pre.block { white-space: pre-wrap; word-break: break-word; font: 12px/1.4 ui-mon
 .diagramm .ch { stroke: var(--text); fill: var(--text); }
 .dlegende i.ch { border-color: var(--text); }
 .dlegende i.dick { border-top-width: 5px; }
+
+/* ---------- Streak und Joker ---------- */
+.streak { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--feld); color: var(--text); }
+.streak > .sym { width: 30px; height: 30px; color: var(--grau); }
+.streak.an > .sym { color: #f2791f; fill: color-mix(in srgb, #f2791f 25%, transparent); }
+.streakzahl { font-size: 26px; font-weight: 800; color: var(--text2); }
+.streak.an .streakzahl { color: #f2791f; }
+.tagz { position: relative; }
+.tjoker { position: absolute; top: 2px; right: 2px; line-height: 0; color: var(--akzent); }
+.tjoker .sym { width: 11px; height: 11px; fill: currentColor; stroke-width: 1; }
+.tjoker.fest { position: static; display: inline-block; vertical-align: middle; margin-right: 3px; }

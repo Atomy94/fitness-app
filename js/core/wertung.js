@@ -129,3 +129,45 @@ export function wochenProzent(state, mo, heuteIso) {
     schwelle: tage[0].schwelle,
   };
 }
+
+/**
+ * Streak: Anzahl guter Tage in Folge (guter Tag = Tageswertung ab der Grenze, Startwert 80 %).
+ * Joker: Pro Kalenderwoche (Mo–So) darf EIN Tag schwach sein, ohne dass der Streak reißt. Dieser Tag
+ * zählt nicht mit. Jeder weitere schwache Tag derselben Woche beendet den Streak.
+ * Tage ohne Ernährungsdaten sind schwache Tage. Gezählt wird ab dem Planstart (einstellungen.start).
+ * Der heutige Tag kann den Streak erst beenden, wenn er vorbei ist: Ist er schon gut, zählt er mit;
+ * ist er (noch) schwach, bleibt er außen vor und verbraucht auch keinen Joker.
+ *
+ * Ergebnis: { aktuell, laengster, joker: [Daten der Joker-Tage], jokerFrei, heuteGut, heuteOffen }
+ *   jokerFrei:  in der laufenden Woche ist die eine Ausnahme noch nicht verbraucht
+ *   heuteOffen: heute ist noch kein guter Tag (zählt noch nicht, schadet aber auch noch nicht)
+ */
+export function streak(state, heuteIso) {
+  const start = state.einstellungen.start || heuteIso;
+  let lauf = 0;
+  let laengster = 0;
+  let woche = null; // Montag der Woche, die gerade gezählt wird
+  let schwache = 0; // schwache Tage in dieser Woche
+  const joker = [];
+  const heute = start <= heuteIso ? tagWertung(state, heuteIso, heuteIso) : null;
+
+  for (let d = start; d <= heuteIso; d = plusTage(d, 1)) {
+    const mo = montag(d);
+    if (mo !== woche) { woche = mo; schwache = 0; }
+    const gut = d === heuteIso ? heute.gut : tagWertung(state, d, heuteIso).gut;
+    if (gut) {
+      lauf += 1;
+      if (lauf > laengster) laengster = lauf;
+    } else if (d !== heuteIso) {
+      schwache += 1;
+      if (schwache === 1) { if (lauf > 0) joker.push(d); } // erster schwacher Tag der Woche: Streak bleibt
+      else lauf = 0; // zweiter schwacher Tag derselben Woche
+    }
+  }
+  return {
+    aktuell: lauf, laengster, joker,
+    jokerFrei: montag(heuteIso) !== woche || schwache === 0,
+    heuteGut: !!(heute && heute.gut),
+    heuteOffen: !heute || !heute.gut,
+  };
+}

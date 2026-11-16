@@ -9,7 +9,7 @@ import { ausHealthData } from '../core/erstimport.js';
 import { fmt } from '../core/zahl.js';
 import { planAuswahl } from '../core/ziele.js';
 import { abendVorschlag } from '../core/vorschlag.js';
-import { tagWertung } from '../core/wertung.js';
+import { tagWertung, streak } from '../core/wertung.js';
 import { wertungBlock } from './wertung.js';
 import { kcalStatus, eiweissStatus } from '../core/bewertung.js';
 import { deMitTag, stundeBerlin, diffTage } from '../core/datum.js';
@@ -47,6 +47,21 @@ function willkommen() {
       h('button', { type: 'button', class: 'knopf schmal', onclick: async () => { await wechsleModus('demo'); neu(); } }, 'Testdaten ansehen'),
       h('button', { type: 'button', class: 'knopf schmal', onclick: () => { S.state.einstellungen.eingerichtet = true; speichern('einstellungen'); neu(); } }, 'Ohne Import starten'),
     ),
+  );
+}
+
+/** Streak: gute Tage in Folge (mit Flamme), längster Streak und Stand des Wochen-Jokers. */
+function streakZeile(d) {
+  const r = streak(S.state, d);
+  const tage = (n) => `${n} ${n === 1 ? 'guter Tag' : 'gute Tage'}`;
+  return h('a', { class: `streak${r.aktuell > 0 ? ' an' : ''}`, href: '#kalender' },
+    symbol('flamme'),
+    h('div', { class: 'wachs' },
+      h('b', null, r.aktuell > 0 ? `${tage(r.aktuell)} in Folge` : 'Noch kein Streak'),
+      h('div', { class: 'klein' }, `Längster: ${tage(r.laengster)} · Joker diese Woche: ${r.jokerFrei ? 'noch frei' : 'verbraucht'}`),
+      r.heuteOffen ? h('div', { class: 'klein' }, `Heute zählt mit, sobald ${fmt(tagWertung(S.state, d, d).schwelle)} % erreicht sind.`) : null,
+    ),
+    h('span', { class: 'streakzahl' }, r.aktuell),
   );
 }
 
@@ -164,6 +179,7 @@ function kopfTeil(d) {
   const w = tagWertung(st, d, heuteIso());
   teile.push(karte('Tageswertung',
     wertungBlock({ prozent: w.prozent, bereiche: w.bereiche, schwelle: w.schwelle, vorlaeufig: w.vorlaeufig && w.gewertet, status: { ernaehrung: b.ernaehrung, training: b.training, schritte: b.schritte }, leerText: 'noch keine Ernährungsdaten', href: `#tag/${d}` }),
+    streakZeile(d),
     h('p', { class: 'klein abstand' }, `${STATUS_TEXT[b.ernaehrung] === 'keine Daten' ? 'Ernährung: noch keine Daten' : `Ernährung ${STATUS_TEXT[b.ernaehrung]}`} · Training ${STATUS_TEXT[b.training]}${b.zusatz ? ' ★' : ''} · Schritte ${STATUS_TEXT[b.schritte]}`),
   ));
 

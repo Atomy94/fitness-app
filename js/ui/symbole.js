@@ -38,6 +38,9 @@ const SYMBOLE = {
   pfeilRunter: [['path', { d: 'M12 4v15M6 13l6 6 6-6' }]],
   start: [['path', { d: 'M7 4.5l12 7.5-12 7.5z' }]],
   haken: [['path', { d: 'M5 12.5l4.5 4.5L19 7.5' }]],
+  flamme: [['path', { d: 'M12 2.8c.8 3.6 5.2 5.6 5.2 10.4a5.2 5.2 0 01-10.4 0c0-2 .9-3.6 2-4.6.3 1.6 1 2.4 2 2.6-.7-2.9-.2-6 1.2-8.4z' }]],
+  // Joker: vierzackiger Stern
+  joker: [['path', { d: 'M12 3l2.3 6.7L21 12l-6.7 2.3L12 21l-2.3-6.7L3 12l6.7-2.3z' }]],
 };
 
 /** SVG-Element eines Symbols (Farbe über CSS: currentColor). */
