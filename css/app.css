@@ -333,3 +333,9 @@ pre.block { white-space: pre-wrap; word-break: break-word; font: 12px/1.4 ui-mon
 .tagz .tpct { font-size: 10px; font-weight: 700; line-height: 1; height: 10px; }
 .tagz { min-height: 66px; }
 .balken.neutral > i { background: var(--akzent); }
+
+/* Diagramm: vorläufiger Punkt hohl, Hauptlinie kräftig */
+.diagramm .hohlpunkt { fill: var(--karte); }
+.diagramm .ch { stroke: var(--text); fill: var(--text); }
+.dlegende i.ch { border-color: var(--text); }
+.dlegende i.dick { border-top-width: 5px; }

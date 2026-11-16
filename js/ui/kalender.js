@@ -3,7 +3,7 @@
 import { S, heuteIso, neu } from '../store.js';
 import { h, karte, punkt, marke, diagramm, STATUS_ZEICHEN } from './dom.js';
 import { tagBewertung, wochenWertung } from '../core/bewertung.js';
-import { tagWertung, wochenProzent } from '../core/wertung.js';
+import { tagWertung, wochenProzent, wochenVerlauf } from '../core/wertung.js';
 import { wertungBlock, wertungStatus } from './wertung.js';
 import { fmt } from '../core/zahl.js';
 import { MONATE, WT_KURZ, monatsRaster, montag, plusTage, deKurz, kw } from '../core/datum.js';
@@ -50,21 +50,20 @@ function wochenTabelle(wochen, heuteD) {
 }
 
 function verlauf(heuteD) {
-  const start = S.state.einstellungen.start || heuteD;
-  const serien = { ernaehrung: [], training: [], schritte: [] };
-  for (let mo = montag(start); mo <= heuteD; mo = plusTage(mo, 7)) {
-    const w = wochenWertung(S.state, mo, heuteD);
-    if (!w.hatDaten) continue;
-    serien.ernaehrung.push({ x: mo, y: (w.ernaehrung.x / 7) * 100 });
-    serien.training.push({ x: mo, y: w.training.von ? (w.training.x / w.training.von) * 100 : null });
-    serien.schritte.push({ x: mo, y: (w.schritte.x / 7) * 100 });
-  }
+  const wochen = wochenVerlauf(S.state, heuteD);
+  const punkte = (feld) => wochen.map((w) => ({ x: w.montag, y: w[feld], vorlaeufig: w.vorlaeufig }));
+  const laufend = wochen.find((w) => w.vorlaeufig);
   return diagramm({
-    yMin: 0, yMax: 100, einheit: '% der Tage im grünen Bereich (je Woche)',
+    yMin: 0, yMax: 100, hoehe: 210,
+    xMarken: wochen.map((w) => ({ x: w.montag, text: `KW ${kw(w.montag)}` })),
+    einheit: '%: Wochenwertung gesamt; je Bereich der Anteil grüner Tage',
+    hinweis: laufend ? `Gestrichelt und hohl: laufende Woche, vorläufig (bisher ${laufend.tage} ${laufend.tage === 1 ? 'Tag' : 'Tage'}).` : '',
     serien: [
-      { name: 'Ernährung', klasse: 'c1', punkte: serien.ernaehrung },
-      { name: 'Training', klasse: 'c2', punkte: serien.training, strich: '7 4' },
-      { name: 'Schritte', klasse: 'c3', punkte: serien.schritte, strich: '2 4' },
+      { name: 'Ernährung', klasse: 'c1', form: 'kreis', dick: 1.5, punkte: punkte('ernaehrung') },
+      { name: 'Training', klasse: 'c2', form: 'quadrat', dick: 1.5, punkte: punkte('training') },
+      { name: 'Schritte', klasse: 'c3', form: 'raute', dick: 1.5, punkte: punkte('schritte') },
+      // zuletzt gezeichnet, damit sie obenauf liegt: die Wochenwertung als deutlich stärkere Linie
+      { name: 'Wochenwertung gesamt', klasse: 'ch', form: 'kreis', dick: 4, radius: 5, punkte: punkte('gesamt') },
     ],
   });
 }

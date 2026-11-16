@@ -173,3 +173,60 @@ test('Wochenwertung: Durchschnitt der gewerteten Tage, Bereiche einzeln, laufend
   assert.equal(leer.prozent, null);
   assert.equal(leer.anzahl, 0);
 });
+
+// ---------- Diagramm "Verlauf der Wochenwertungen" ----------
+
+test('Wochendiagramm: laufende Woche mit einem einzigen Tag wird nur aus diesem Tag berechnet', async () => {
+  const { wochenVerlauf } = await import('../js/core/wertung.js');
+  const s = stand();
+  // Vorwoche komplett: jeden Tag alles grün
+  for (const d of [MO, DI, MI, DO, FR, SA, SO]) tag(s, d, { kcal: d === SO ? 2500 : 2200, eiweiss_g: 150, schritte: 5000 });
+  s.tage[SO].fussball = true;
+  s.trainings.push(kraft(MO), cardio(DI, 'Laufband', 30), kraft(DO), cardio(FR, 'Laufband', 30));
+  // laufende Woche: nur der Montag, 16.11., alles grün; heute ist Dienstag ohne Daten
+  tag(s, '2026-11-16', { kcal: 2200, eiweiss_g: 150, schritte: 5000 });
+  s.trainings.push(kraft('2026-11-16'));
+  const v = wochenVerlauf(s, '2026-11-17');
+  assert.deepEqual(v.map((w) => [w.montag, w.vorlaeufig]), [[MO, false], ['2026-11-16', true]]);
+  assert.deepEqual([v[0].ernaehrung, v[0].training, v[0].schritte, v[0].gesamt], [100, 100, 100, 100]);
+  // Früherer Fehler: 1 von 7 Tagen = 14 %. Richtig: 1 von 1 bisherigem Tag = 100 %.
+  assert.deepEqual([v[1].ernaehrung, v[1].training, v[1].schritte, v[1].gesamt], [100, 100, 100, 100]);
+  assert.equal(v[1].tage, 2);
+});
+
+test('Wochendiagramm: der heutige Tag zählt nur, wo schon ein Ergebnis vorliegt', async () => {
+  const { wochenVerlauf } = await import('../js/core/wertung.js');
+  const s = stand();
+  tag(s, MO, { kcal: 2200, eiweiss_g: 150, schritte: 5000 }); s.trainings.push(kraft(MO)); // Montag alles grün
+  // Dienstag = heute: Schritte schon eingetragen (zu wenig), Ernährung fehlt noch, Laufband noch offen
+  tag(s, DI, { schritte: 1000 });
+  let v = wochenVerlauf(s, DI);
+  assert.equal(v.length, 1);
+  assert.equal(v[0].vorlaeufig, true);
+  assert.equal(v[0].ernaehrung, 100); // nur Montag zählt
+  assert.equal(v[0].training, 100); // offenes Laufband von heute zählt noch nicht
+  assert.equal(v[0].schritte, 50); // Montag grün, heute rot
+  // heute Abend: Ernährung grün, Laufband erledigt
+  tag(s, DI, { schritte: 1000, kcal: 2200, eiweiss_g: 150 });
+  s.trainings.push(cardio(DI, 'Laufband', 30));
+  v = wochenVerlauf(s, DI);
+  assert.deepEqual([v[0].ernaehrung, v[0].training, v[0].schritte], [100, 100, 50]);
+  // dieselbe Woche im Rückblick: alle 7 Tage zählen, fehlende Tage sind nicht grün
+  v = wochenVerlauf(s, SPAETER);
+  assert.equal(v[0].vorlaeufig, false);
+  nah(v[0].ernaehrung, (2 / 7) * 100);
+  nah(v[0].schritte, (1 / 7) * 100);
+  nah(v[0].training, (2 / 5) * 100); // Mo, Di erledigt; Do, Fr, So ausgefallen; Sa (Bonus) ohne Wertung
+});
+
+test('Wochendiagramm: Wochen ohne Angaben fehlen, Training ohne Plantag ist leer', async () => {
+  const { wochenVerlauf } = await import('../js/core/wertung.js');
+  assert.deepEqual(wochenVerlauf(stand(), SPAETER), []);
+  const s = stand();
+  tag(s, '2026-11-25', { kcal: 2200, eiweiss_g: 150 }); // nur ein Mittwoch in KW 48, heute
+  const v = wochenVerlauf(s, '2026-11-25');
+  assert.deepEqual(v.map((w) => w.montag), ['2026-11-23']);
+  assert.equal(v[0].ernaehrung, (1 / 3) * 100); // Mo und Di ohne Daten, Mi grün
+  assert.equal(v[0].training, 0); // Mo Kraft und Di Laufband ausgefallen
+  assert.equal(v[0].gesamt, 100); // nur der gewertete Tag zählt
+});

@@ -152,8 +152,11 @@ export async function kopiere(text) {
  * Liniendiagramm über die Zeit.
  * serien: [{ name, klasse: 'c1'|'c2'|'c3'|'cg'|'ct', punkte: [{ x: 'JJJJ-MM-TT', y }], linie, punkteZeigen, strich, dick, hohl }]
  * hLinien: [{ y, text }] (Ziellinien)
+ * xMarken: [{ x, text }] eigene Beschriftung der X-Achse (z. B. Kalenderwochen) statt Datumsangaben
+ * Punkt mit vorlaeufig: true → hohl gezeichnet, die Linie dorthin gestrichelt (laufende Woche).
+ * Serie mit form: 'quadrat' | 'raute' → andere Punktform, damit Linien auch ohne Farbe unterscheidbar sind.
  */
-export function diagramm({ serien, hLinien = [], hoehe = 190, yMin = null, yMax = null, stellen = 0, einheit = '' }) {
+export function diagramm({ serien, hLinien = [], hoehe = 190, yMin = null, yMax = null, stellen = 0, einheit = '', xMarken = null, hinweis = '' }) {
   const alle = serien.flatMap((se) => se.punkte).filter((p) => p.y !== null && p.y !== undefined);
   if (!alle.length) return h('p', { class: 'leer' }, 'Noch keine Daten');
   const B = 340, L = 36, R = 10, O = 10, U = 22;
@@ -175,27 +178,46 @@ export function diagramm({ serien, hLinien = [], hoehe = 190, yMin = null, yMax 
     const y = lo + ((hi - lo) * i) / 4;
     svg.append(s('line', { class: 'gitter', x1: L, x2: B - R, y1: py(y), y2: py(y) }), s('text', { x: L - 5, y: py(y) + 3, 'text-anchor': 'end' }, fmt(y, stellen)));
   }
-  const marken = tage >= 4 ? [x0, plusTage(x0, Math.round(tage / 2)), x1] : [x0, x1];
-  marken.forEach((x, i) => svg.append(s('text', { x: px(x), y: hoehe - 6, 'text-anchor': i === 0 ? 'start' : i === marken.length - 1 ? 'end' : 'middle' }, deKurz(x))));
+  if (xMarken) {
+    // höchstens etwa 6 Beschriftungen, die letzte immer
+    const schritt = Math.ceil(xMarken.length / 6);
+    xMarken.forEach((m, i) => { if ((xMarken.length - 1 - i) % schritt === 0) svg.append(s('text', { x: px(m.x), y: hoehe - 6, 'text-anchor': xMarken.length > 1 && i === 0 ? 'start' : xMarken.length > 1 && i === xMarken.length - 1 ? 'end' : 'middle' }, m.text)); });
+  } else {
+    const marken = tage >= 4 ? [x0, plusTage(x0, Math.round(tage / 2)), x1] : [x0, x1];
+    marken.forEach((x, i) => svg.append(s('text', { x: px(x), y: hoehe - 6, 'text-anchor': i === 0 ? 'start' : i === marken.length - 1 ? 'end' : 'middle' }, deKurz(x))));
+  }
   for (const l of hLinien) {
     svg.append(s('line', { class: 'ziel', x1: L, x2: B - R, y1: py(l.y), y2: py(l.y) }), s('text', { class: 'ziel-t', x: B - R, y: py(l.y) - 4, 'text-anchor': 'end' }, l.text));
   }
   for (const se of serien) {
     const p = se.punkte.filter((q) => q.y !== null && q.y !== undefined).sort((a, b) => (a.x < b.x ? -1 : 1));
     if (!p.length) continue;
-    if (se.linie !== false && p.length > 1) {
-      svg.append(s('path', { class: se.klasse, d: p.map((q, i) => `${i ? 'L' : 'M'}${px(q.x).toFixed(1)} ${py(q.y).toFixed(1)}`).join(' '), 'stroke-width': se.dick || 2, 'stroke-dasharray': se.strich || null }));
+    const weg = (liste) => liste.map((q, i) => `${i ? 'L' : 'M'}${px(q.x).toFixed(1)} ${py(q.y).toFixed(1)}`).join(' ');
+    const fest = p.filter((q) => !q.vorlaeufig);
+    const offen = p.filter((q) => q.vorlaeufig);
+    if (se.linie !== false) {
+      if (fest.length > 1) svg.append(s('path', { class: se.klasse, d: weg(fest), 'stroke-width': se.dick || 2, 'stroke-dasharray': se.strich || null }));
+      // Strecke zum vorläufigen Punkt: gestrichelt
+      if (offen.length && fest.length) svg.append(s('path', { class: se.klasse, d: weg([fest.at(-1), ...offen]), 'stroke-width': se.dick || 2, 'stroke-dasharray': '4 4', 'stroke-opacity': 0.75 }));
     }
     if (se.punkteZeigen !== false) {
       for (const q of p) {
-        svg.append(s('circle', { class: q.aus ? 'cg' : se.klasse, cx: px(q.x), cy: py(q.y), r: se.radius || 3, 'fill-opacity': se.hohl ? 0.35 : 1, 'stroke-width': 0 }));
+        const r = se.radius || 3;
+        const x = px(q.x), y = py(q.y);
+        const stil = q.vorlaeufig
+          ? { class: `${se.klasse} hohlpunkt`, 'stroke-width': 2 }
+          : { class: q.aus ? 'cg' : se.klasse, 'fill-opacity': se.hohl ? 0.35 : 1, 'stroke-width': 0 };
+        if (se.form === 'quadrat') svg.append(s('rect', { ...stil, x: x - r, y: y - r, width: 2 * r, height: 2 * r }));
+        else if (se.form === 'raute') svg.append(s('rect', { ...stil, x: x - r, y: y - r, width: 2 * r, height: 2 * r, transform: `rotate(45 ${x.toFixed(1)} ${y.toFixed(1)})` }));
+        else svg.append(s('circle', { ...stil, cx: x, cy: y, r }));
       }
     }
   }
   const legende = h('div', { class: 'dlegende' },
-    serien.filter((se) => se.name).map((se) => h('span', null, h('i', { class: `${se.klasse} ${se.strich ? 'strich' : ''} ${se.linie === false ? 'punkte' : ''}` }), se.name)),
+    serien.filter((se) => se.name).map((se) => h('span', null, h('i', { class: `${se.klasse} ${se.strich ? 'strich' : ''} ${se.linie === false ? 'punkte' : ''} ${se.dick >= 3 ? 'dick' : ''}` }), se.form === 'quadrat' ? '■ ' : se.form === 'raute' ? '◆ ' : se.form === 'kreis' ? '● ' : '', se.name)),
     hLinien.filter((l) => l.name).map((l) => h('span', null, h('i', { class: 'ziel' }), l.name)),
     einheit ? h('span', null, `Angaben in ${einheit}`) : null,
+    hinweis ? h('span', null, hinweis) : null,
   );
   return h('div', { class: 'diagramm' }, svg, legende);
 }

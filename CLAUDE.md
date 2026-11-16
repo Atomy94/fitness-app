@@ -132,6 +132,13 @@ Zusätzlich zu den Farbstatus der drei Bereiche. Pro Tag 0–100 %, nie mehr.
 - Gewichte und Grenzen stehen als Ziele mit `gueltig_ab` in den Daten: `wertung_kcal_pct`, `wertung_eiweiss_pct`, `wertung_training_pct`, `wertung_schritte_pct`, `wertung_kcal_null_abstand`, `wertung_guter_tag` (Mehr → Einstellungen → Tageswertung).
 - **Anzeige** (`wertungBlock()` in `js/ui/wertung.js`): groß die Prozentzahl, darunter immer die drei Bereiche als Balken. Auf „Heute“ und in der Tagesansicht zeigt der Punkt vor dem Balken den Farbstatus des Bereichs, der Balken selbst ist neutral. Im Kalender: Zahl je Tag im Monatsraster (`*` = vorläufig), Wochenwertung in „Diese Woche“ und in der Wochentabelle. Auch im Check-in und im Export (`wertung_pct`).
 
+### Diagramm „Verlauf der Wochenwertungen“ (seit 1.10)
+
+- Daten: `wochenVerlauf()` in `js/core/wertung.js`. Je Woche der Anteil grüner Tage je Bereich und die Wochenwertung (gesamt) als vierte, kräftige Linie.
+- **Laufende Woche nur aus den bisherigen Tagen:** vergangene Tage zählen immer; der heutige Tag zählt je Bereich erst, wenn ein Ergebnis vorliegt (Ernährung/Schritte eingetragen, Training nicht mehr offen). Vorher wurde durch 7 geteilt, wodurch die Linien am Wochenanfang fälschlich abfielen.
+- Die laufende Woche ist vorläufig: Punkt hohl, Strecke dorthin gestrichelt (`vorlaeufig` am Punkt, siehe `diagramm()` in `js/ui/dom.js`).
+- X-Achse mit Kalenderwochen (`xMarken`). Die Bereichslinien unterscheiden sich zusätzlich zur Farbe durch die Punktform (Kreis, Quadrat, Raute).
+
 ## Abend-Vorschläge „Für heute noch“ (seit 1.8)
 
 - Ab `einstellungen.vorschlagAbStunde` (Startwert 20 Uhr, Berliner Zeit) zeigt „Heute“ die Karte. Umsetzung: `abendVorschlag()` in `js/core/vorschlag.js`, ohne KI.

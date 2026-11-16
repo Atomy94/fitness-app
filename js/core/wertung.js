@@ -5,7 +5,7 @@
 
 import { tagBewertung, GRUEN, GELB, ROT, OFFEN } from './bewertung.js';
 import { zielWert } from './ziele.js';
-import { wochenTage, plusTage } from './datum.js';
+import { wochenTage, plusTage, montag } from './datum.js';
 
 const begrenze = (x) => Math.min(1, Math.max(0, x));
 const istZahl = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -68,6 +68,44 @@ export function tagWertung(state, datum, heuteIso) {
     teile: { kcal: pct(kcal), eiweiss: pct(eiweiss) },
     schwelle, gut: prozent !== null && prozent >= schwelle,
   };
+}
+
+/**
+ * Verlauf der Wochenwertungen für das Diagramm: je Woche der Anteil grüner Tage je Bereich (in %)
+ * und die Wochenwertung (gesamt). Wochen ohne jede Angabe fehlen.
+ * Die LAUFENDE Woche wird nur aus den bisherigen Tagen berechnet und als vorläufig markiert:
+ * vergangene Tage zählen immer, der heutige nur in den Bereichen, für die es schon ein Ergebnis gibt
+ * (sonst sähe ein Montagmorgen wie "0 von 7" aus und die Linien fielen fälschlich ab).
+ */
+export function wochenVerlauf(state, heuteIso) {
+  const start = state.einstellungen.start || heuteIso;
+  const aus = [];
+  for (let mo = montag(start); mo <= heuteIso; mo = plusTage(mo, 7)) {
+    const tage = wochenTage(mo).map((d) => tagBewertung(state, d, heuteIso));
+    const gesamt = wochenProzent(state, mo, heuteIso);
+    const hatDaten = tage.some((t) => t.ernaehrung !== 'leer' || t.schritte !== 'leer' || t.einheiten.length > 0);
+    if (!hatDaten && gesamt.prozent === null) continue;
+    const vorlaeufig = gesamt.vorlaeufig;
+    // Welche Tage zählen für einen Bereich?
+    const zaehlt = (t, feld) => {
+      if (t.datum > heuteIso) return false;
+      if (t.datum === heuteIso) return t[feld] !== 'leer' && t[feld] !== OFFEN;
+      return true;
+    };
+    const anteil = (feld, nurGewertete) => {
+      const liste = tage.filter((t) => zaehlt(t, feld) && (!nurGewertete || [GRUEN, GELB, ROT].includes(t[feld])));
+      return liste.length ? (liste.filter((t) => t[feld] === GRUEN).length / liste.length) * 100 : null;
+    };
+    aus.push({
+      montag: mo, vorlaeufig,
+      ernaehrung: anteil('ernaehrung', false),
+      training: anteil('training', true), // nur Plantage mit Wertung
+      schritte: anteil('schritte', false),
+      gesamt: gesamt.prozent,
+      tage: vorlaeufig ? tage.filter((t) => t.datum <= heuteIso).length : 7,
+    });
+  }
+  return aus;
 }
 
 const schnitt = (werte) => { const w = werte.filter((v) => v !== null); return w.length ? w.reduce((a, b) => a + b, 0) / w.length : null; };
