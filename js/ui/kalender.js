@@ -3,6 +3,8 @@
 import { S, heuteIso, neu } from '../store.js';
 import { h, karte, punkt, marke, diagramm, STATUS_ZEICHEN } from './dom.js';
 import { tagBewertung, wochenWertung } from '../core/bewertung.js';
+import { tagWertung, wochenProzent } from '../core/wertung.js';
+import { wertungBlock, wertungStatus } from './wertung.js';
 import { fmt } from '../core/zahl.js';
 import { MONATE, WT_KURZ, monatsRaster, montag, plusTage, deKurz, kw } from '../core/datum.js';
 
@@ -11,11 +13,13 @@ const sicht = { jahr: null, monat: null, filter: 'alle' };
 
 function tagZelle(datum, imMonat, heuteD) {
   const b = tagBewertung(S.state, datum, heuteD);
+  const w = tagWertung(S.state, datum, heuteD);
   const nr = Number(datum.slice(8));
   const klassen = ['tagz', imMonat ? '' : 'fremd', datum === heuteD ? 'heute' : ''];
   if (sicht.filter === 'alle') {
     return h('a', { class: klassen.join(' '), href: `#tag/${datum}` },
       h('span', { class: 'nr' }, nr),
+      w.gewertet ? h('span', { class: `tpct wert-s s-${wertungStatus(w.prozent, w.schwelle)}` }, `${fmt(w.prozent)}${w.vorlaeufig ? '*' : ''}`) : h('span', { class: 'tpct' }, ''),
       h('span', { class: 'dreier' }, punkt(b.ernaehrung, 'E'), punkt(b.training, 'T', b.zusatz), punkt(b.schritte, 'S')),
     );
   }
@@ -31,7 +35,8 @@ function wochenTabelle(wochen, heuteD) {
   const zeilen = wochen.map((w) => {
     const leer = !w.hatDaten;
     return h('tr', null,
-      h('td', null, h('b', null, `KW ${kw(w.montag)}`), h('div', { class: 'klein' }, `${deKurz(w.montag)}–${deKurz(plusTage(w.montag, 6))}`)),
+      h('td', null, h('b', null, `KW ${kw(w.montag)}`), h('div', { class: 'klein' }, `${deKurz(w.montag)}–${deKurz(plusTage(w.montag, 6))}`),
+        (() => { const p = wochenProzent(S.state, w.montag, heuteD); return p.prozent === null ? null : h('div', { class: `wert-s s-${wertungStatus(p.prozent, p.schwelle)}` }, `${fmt(p.prozent)} %${p.vorlaeufig ? ' vorläufig' : ''}`); })()),
       h('td', { class: 'r' }, leer ? '–' : `${w.ernaehrung.x}/7`),
       h('td', { class: 'r' }, leer ? '–' : `${w.training.x}/${w.training.von}`),
       h('td', { class: 'r' }, leer ? '–' : `${w.schritte.x}/7`, h('div', { class: 'klein' }, w.schritteSchnitt === null ? '' : `Ø ${fmt(w.schritteSchnitt)}`)),
@@ -76,6 +81,7 @@ export function kalenderScreen() {
   const praefix = `${sicht.jahr}-${String(sicht.monat).padStart(2, '0')}`;
   const wochen = raster.map((w) => wochenWertung(S.state, w[0], heuteD));
   const diese = wochenWertung(S.state, montag(heuteD), heuteD);
+  const dieseProzent = wochenProzent(S.state, montag(heuteD), heuteD);
 
   const knoten = h('div', null,
     h('div', { class: 'filter' }, BEREICHE.map(([k, name]) => h('button', { type: 'button', class: sicht.filter === k ? 'an' : '', onclick: () => { sicht.filter = k; neu(); } }, name))),
@@ -92,11 +98,12 @@ export function kalenderScreen() {
       h('div', { class: 'legende' },
         h('span', null, punkt('gruen', '✓'), 'geschafft'), h('span', null, punkt('gelb', '≈'), 'knapp'), h('span', null, punkt('rot', '✕'), 'verfehlt'),
         h('span', null, punkt('grau', '–'), 'trifft nicht zu'), h('span', null, punkt('leer', ''), 'keine Daten'), h('span', null, '★ Zusatztraining'),
-        sicht.filter === 'alle' ? h('span', null, 'E = Ernährung · T = Training · S = Schritte') : null,
+        sicht.filter === 'alle' ? h('span', null, 'E = Ernährung · T = Training · S = Schritte · Zahl = Tageswertung in % (* = vorläufig)') : null,
       ),
     ),
     karte('Diese Woche',
-      h('ul', { class: 'liste' },
+      wertungBlock({ prozent: dieseProzent.prozent, bereiche: dieseProzent.bereiche, schwelle: dieseProzent.schwelle, vorlaeufig: dieseProzent.vorlaeufig, unter: `${dieseProzent.anzahl} ${dieseProzent.anzahl === 1 ? 'gewerteter Tag' : 'gewertete Tage'}`, leerText: 'noch kein gewerteter Tag' }),
+      h('ul', { class: 'liste abstand' },
         h('li', null, punkt('grau', 'E'), h('span', { class: 'wachs' }, 'Ernährung'), h('b', null, `${diese.ernaehrung.x} von 7 Tagen`)),
         h('li', null, punkt('grau', 'T'), h('span', { class: 'wachs' }, 'Training'), h('b', null, `${diese.training.x} von ${diese.training.von} Plantagen`)),
         h('li', null, punkt('grau', 'S'), h('span', { class: 'wachs' }, 'Schritte', h('div', { class: 'klein' }, `Wochenschnitt ${fmt(diese.schritteSchnitt)}`)), h('b', null, `${diese.schritte.x} von 7 Tagen`)),

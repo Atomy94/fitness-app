@@ -1,7 +1,7 @@
 // Bildschirm "Heute": Ringe, Schritte, Plan, die drei Bereiche und die Schnelleingabe.
 
 import { S, heuteIso, neu, setzeState, wechsleModus, speichern, meldung } from '../store.js';
-import { h, karte, ring, punkt, STATUS_TEXT } from './dom.js';
+import { h, karte, ring, STATUS_TEXT } from './dom.js';
 import { tagFormular, einheitText } from './tag.js';
 import { symbol, kachel } from './symbole.js';
 import { tagBewertung } from '../core/bewertung.js';
@@ -9,6 +9,8 @@ import { ausHealthData } from '../core/erstimport.js';
 import { fmt } from '../core/zahl.js';
 import { planAuswahl } from '../core/ziele.js';
 import { abendVorschlag } from '../core/vorschlag.js';
+import { tagWertung } from '../core/wertung.js';
+import { wertungBlock } from './wertung.js';
 import { kcalStatus, eiweissStatus } from '../core/bewertung.js';
 import { deMitTag, stundeBerlin, diffTage } from '../core/datum.js';
 
@@ -158,9 +160,12 @@ function kopfTeil(d) {
     ),
   ));
 
-  const bereich = (buchstabe, name, status, stern) => h('a', { class: `bereich s-${status}`, href: `#tag/${d}` }, h('div', { class: 'zeile', style: 'justify-content:center;gap:6px' }, punkt(status, buchstabe, stern), h('b', null, name)), STATUS_TEXT[status]);
-  teile.push(h('div', { class: 'bereiche', style: 'margin-bottom:12px' },
-    bereich('E', 'Ernährung', b.ernaehrung), bereich('T', 'Training', b.training, b.zusatz), bereich('S', 'Schritte', b.schritte)));
+  // Tageswertung: groß die Prozentzahl, darunter immer die drei Bereiche einzeln (Punkt = Farbstatus des Bereichs)
+  const w = tagWertung(st, d, heuteIso());
+  teile.push(karte('Tageswertung',
+    wertungBlock({ prozent: w.prozent, bereiche: w.bereiche, schwelle: w.schwelle, vorlaeufig: w.vorlaeufig && w.gewertet, status: { ernaehrung: b.ernaehrung, training: b.training, schritte: b.schritte }, leerText: 'noch keine Ernährungsdaten', href: `#tag/${d}` }),
+    h('p', { class: 'klein abstand' }, `${STATUS_TEXT[b.ernaehrung] === 'keine Daten' ? 'Ernährung: noch keine Daten' : `Ernährung ${STATUS_TEXT[b.ernaehrung]}`} · Training ${STATUS_TEXT[b.training]}${b.zusatz ? ' ★' : ''} · Schritte ${STATUS_TEXT[b.schritte]}`),
+  ));
 
   const vorschlag = bereit ? vorschlagKarte(b) : null;
   if (vorschlag) teile.push(vorschlag);

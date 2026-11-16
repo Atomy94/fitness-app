@@ -48,6 +48,14 @@ const LISTE = {
   ges_fett_gelb_max: ['Weitere Werte', 'Gesättigte Fette gelb bis', 'g', 30],
   fett_max: ['Weitere Werte', 'Fett höchstens (für die Abend-Vorschläge)', 'g', 75],
 
+  // Tageswertung in Prozent: Gewichte der Teile (zusammen 100), siehe js/core/wertung.js
+  wertung_kcal_pct: ['Tageswertung', 'Gewicht Kalorien', '%', 30],
+  wertung_eiweiss_pct: ['Tageswertung', 'Gewicht Eiweiß', '%', 20],
+  wertung_training_pct: ['Tageswertung', 'Gewicht Training', '%', 25],
+  wertung_schritte_pct: ['Tageswertung', 'Gewicht Schritte', '%', 25],
+  wertung_kcal_null_abstand: ['Tageswertung', 'Kalorien: 0 % bei … kcal Abstand zum Korridor', 'kcal', 500],
+  wertung_guter_tag: ['Tageswertung', 'Guter Tag ab', '%', 80],
+
   bauch_start: ['Bauchumfang', 'Startwert', 'cm', 102],
   bauch_ziel: ['Bauchumfang', 'Zielwert', 'cm', 92],
 };

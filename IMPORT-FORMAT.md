@@ -116,6 +116,9 @@ Tage **vor** `gueltig_ab` werden weiter mit dem alten Wert bewertet.
 | `ballaststoffe_min` / `ballaststoffe_gelb_min` | grün ab / gelb ab | 30 / 25 |
 | `ges_fett_max` / `ges_fett_gelb_max` | grün bis / gelb bis | 25 / 30 |
 | `fett_max` | Fett höchstens pro Tag (für die Abend-Vorschläge, ab 1.8) | 75 |
+| `wertung_kcal_pct` / `wertung_eiweiss_pct` / `wertung_training_pct` / `wertung_schritte_pct` | Gewichte der Tageswertung in % (ab 1.9) | 30 / 20 / 25 / 25 |
+| `wertung_kcal_null_abstand` | Kalorien: 0 % bei diesem Abstand zum Korridor (kcal) | 500 |
+| `wertung_guter_tag` | Guter Tag ab … % | 80 |
 | `bauch_start` / `bauch_ziel` | Bauchumfang Start / Ziel (cm) | 102 / 92 |
 
 Ein unbekannter Schlüssel ist ein Fehler (die Meldung listet alle erlaubten Schlüssel).

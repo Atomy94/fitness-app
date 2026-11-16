@@ -7,6 +7,7 @@
 
 import { ZIEL_INFO, zielWert, minimalAktiv } from './ziele.js';
 import { wochenWertung, tagBewertung } from './bewertung.js';
+import { tagWertung, wochenProzent } from './wertung.js';
 import { SAMMLUNGEN } from './state.js';
 import { KATEGORIEN, NAEHRWERTE } from './rezepte.js';
 import { fmt } from './zahl.js';
@@ -30,6 +31,7 @@ function wochenUebersicht(state, heuteIso, maxWochen) {
       kw: kw(mo), montag: mo, ernaehrung: `${w.ernaehrung.x}/7`, training: `${w.training.x}/${w.training.von}`, schritte: `${w.schritte.x}/7`,
       schritte_schnitt: w.schritteSchnitt === null ? null : Math.round(w.schritteSchnitt),
       kcal_schnitt: w.kcalSchnitt === null ? null : Math.round(w.kcalSchnitt), kcal_schnitt_status: w.kcalSchnittStatus,
+      wertung_pct: (() => { const p = wochenProzent(state, mo, heuteIso); return p.prozent === null ? null : Math.round(p.prozent); })(),
       gewicht_schnitt_kg: gewichte.length ? Math.round((gewichte.reduce((a, b) => a + b, 0) / gewichte.length) * 100) / 100 : null,
     });
   }
@@ -51,7 +53,8 @@ export function exportDaten(state, heuteIso, tageZahl) {
     wochenwertungen: wochenUebersicht(state, heuteIso, tageZahl ? 60 : 500),
     tage: Object.values(state.tage).filter((t) => t.datum >= ab).sort(nachDatum).map((t) => {
       const b = tagBewertung(state, t.datum, heuteIso);
-      return { ...t, status: { ernaehrung: b.ernaehrung, training: b.training, schritte: b.schritte } };
+      const w = tagWertung(state, t.datum, heuteIso);
+      return { ...t, status: { ernaehrung: b.ernaehrung, training: b.training, schritte: b.schritte }, wertung_pct: w.prozent === null ? null : Math.round(w.prozent) };
     }),
     trainings: state.trainings.filter((t) => t.datum >= ab).sort(nachDatum).map(ohneId),
     messungen: [...state.messungen].sort(nachDatum).map(ohneId),

@@ -4,6 +4,7 @@ import { plusTage, wochenTage, de, kw } from './datum.js';
 import { fmt, runde } from './zahl.js';
 import { wochenWertung, schnitt, fussballGespielt, GRUEN } from './bewertung.js';
 import { planTag } from './ziele.js';
+import { wochenProzent } from './wertung.js';
 
 export function wochenWerte(state, mo, heuteIso) {
   const tage = wochenTage(mo);
@@ -45,6 +46,7 @@ export function wochenWerte(state, mo, heuteIso) {
     ballaststoffe: feld('ballaststoffe_g'), gesFett: feld('ges_fett_g'),
     schlaf: feld('schlaf_h'), schlafQualitaet: feld('schlaf_qualitaet'), stress: feld('stress'),
     wertung,
+    prozent: wochenProzent(state, mo, heuteIso),
     minimal: wertung.tage.some((t) => t.minimal),
     ungenau: tage.some((d) => state.tage[d] && state.tage[d].ungenau),
   };
@@ -67,6 +69,7 @@ export function checkinZeilen(w) {
     ['Gesättigte Fette Ø', w.gesFett === null ? '–' : `${fmt(w.gesFett, 1)} g`],
     ['Schlaf Ø', w.schlaf === null ? '–' : `${fmt(w.schlaf, 1)} Std.${w.schlafQualitaet === null ? '' : ', Qualität ' + fmt(w.schlafQualitaet, 1) + ' von 5'}`],
     ['Stress Ø', w.stress === null ? '–' : `${fmt(w.stress, 1)} von 10`],
+    ['Wochenwertung', w.prozent.prozent === null ? '–' : `${fmt(w.prozent.prozent)} %${w.prozent.vorlaeufig ? ' (vorläufig)' : ''} aus ${w.prozent.anzahl} ${w.prozent.anzahl === 1 ? 'gewerteten Tag' : 'gewerteten Tagen'} · Ernährung ${fmt(w.prozent.bereiche.ernaehrung)} % · Training ${fmt(w.prozent.bereiche.training)} % · Schritte ${fmt(w.prozent.bereiche.schritte)} %`],
     ['Wertung Ernährung', `${wt.ernaehrung.x} von 7 Tagen`],
     ['Wertung Training', `${wt.training.x} von ${wt.training.von} Plantagen`],
     ['Wertung Schritte', `${wt.schritte.x} von 7 Tagen`],
@@ -87,6 +90,8 @@ export function checkinJson(w, frei = {}) {
     wertung: {
       ernaehrung: `${wt.ernaehrung.x}/7`, training: `${wt.training.x}/${wt.training.von}`, schritte: `${wt.schritte.x}/7`,
       kcal_wochenschnitt: wt.kcalSchnittStatus,
+      prozent: runde(w.prozent.prozent, 0), prozent_vorlaeufig: w.prozent.vorlaeufig, gewertete_tage: w.prozent.anzahl,
+      prozent_ernaehrung: runde(w.prozent.bereiche.ernaehrung, 0), prozent_training: runde(w.prozent.bereiche.training, 0), prozent_schritte: runde(w.prozent.bereiche.schritte, 0),
     },
     tage: wt.tage.map((t) => ({
       datum: t.datum, kcal: t.tag.kcal ?? null, eiweiss_g: t.tag.eiweiss_g ?? null, schritte: t.tag.schritte ?? null,

@@ -3,6 +3,8 @@
 import { S, speichern, heuteIso } from '../store.js';
 import { h, karte, zahlFeld, textFeld, wahl, punkt, marke, STATUS_TEXT } from './dom.js';
 import { tagBewertung } from '../core/bewertung.js';
+import { tagWertung } from '../core/wertung.js';
+import { wertungBlock } from './wertung.js';
 import { tagVon, neueId } from '../core/state.js';
 import { fmt } from '../core/zahl.js';
 import { deMitTag, plusTage, WT_LANG, wochentag, istDatum } from '../core/datum.js';
@@ -134,7 +136,14 @@ export function tagScreen([datum]) {
   if (!istDatum(datum)) datum = heuteIso();
   const oben = h('div');
   const formular = h('div');
-  const zeichneOben = () => oben.replaceChildren(...bereicheDetail(datum));
+  const zeichneOben = () => {
+    const w = tagWertung(S.state, datum, heuteIso());
+    const bw = tagBewertung(S.state, datum, heuteIso());
+    oben.replaceChildren(
+      karte('Tageswertung', wertungBlock({ prozent: w.prozent, bereiche: w.bereiche, schwelle: w.schwelle, vorlaeufig: w.vorlaeufig && w.gewertet, status: { ernaehrung: bw.ernaehrung, training: bw.training, schritte: bw.schritte }, leerText: datum > heuteIso() ? 'liegt in der Zukunft' : 'ohne Ernährungsdaten nicht gewertet' })),
+      ...bereicheDetail(datum),
+    );
+  };
   const zeichneFormular = () => formular.replaceChildren(tagFormular(datum, { voll: true, onChange: (allesNeu) => { zeichneOben(); if (allesNeu) zeichneFormular(); } }));
   zeichneOben();
   zeichneFormular();

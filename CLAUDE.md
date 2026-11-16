@@ -19,7 +19,7 @@ Entscheidungen selbst und begründe sie kurz. Frag nur, wenn eine Entscheidung d
 1. **Niemals persönliche Daten ins Repository.** `health-data.json`, `README-health-data.md`, Sicherungen und die Prompt-Datei stehen in `.gitignore`. Vor jedem Commit `git status` prüfen. Der Hook `.githooks/pre-commit` bricht ab, wenn solche Dateien dabei sind (aktiv über `git config core.hooksPath .githooks`). Beispiele und Tests nur mit erfundenen Werten.
 2. **Ziele, Grenzwerte und Trainingsplan stehen in den Daten, nicht im Code.** Im Code stehen nur Schlüssel, Bezeichnungen und Startwerte (`js/core/ziele.js`, `js/core/state.js`).
 3. **Ziele haben `gueltig_ab`.** Vergangene Tage werden mit dem damals gültigen Wert bewertet. Gilt auch für den Wochenplan (`plan.wochenplanAlt`).
-4. **Drei Bereiche getrennt:** Ernährung, Training, Schritte. Kein Gesamtwert, keine Serien (Streaks).
+4. **Drei Bereiche bleiben immer einzeln sichtbar:** Ernährung, Training, Schritte. Seit 1.9 gibt es auf Wunsch des Nutzers zusätzlich eine Tages- und Wochenwertung in Prozent; sie darf nie allein stehen, sondern wird immer zusammen mit den drei Bereichsbalken gezeigt. (Die frühere Regel „kein Gesamtwert, keine Serien“ hat der Nutzer am 16.11.2026 ausdrücklich aufgehoben.)
 5. **Täglicher Eintrag höchstens 2 Minuten:** wenige Felder, Vorbelegung, nichts doppelt.
 6. Oberfläche komplett Deutsch, Zahlen deutsch (`fmt`), Komma-Eingabe (`parseZahl`), Datum TT.MM.JJJJ, Woche ab Montag, Zeitzone Europe/Berlin (`heute()`).
 7. Nach jedem funktionierenden Schritt: Tests laufen lassen, Commit mit verständlicher deutscher Beschreibung.
@@ -64,6 +64,7 @@ js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   eingang.js            Eingang verarbeiten: Auto-Importe je Datum auf die neueste Datei eindampfen, konfliktfrei nach erledigt/ verschieben, optional ohne Vorschau übernehmen
   claude-dateien.js     Inhalte für Claude: stand.md, rezepte.md, LIESMICH-fuer-Claude.md, Sicherung, Export
   rezepte.js            Kategorien, Nährwertfelder, Übernahme aus dem Archiv, Portion aus 100-g-Werten
+  wertung.js            Tages- und Wochenwertung in Prozent (Gewichte und Grenzen aus den Zielen)
   vorschlag.js          Abend-Vorschläge „Für heute noch“ (rein rechnerisch), Startwerte der Snack-Liste
   kraft.js              Verlauf je Übung (Gewicht × Wdh.), Kennzahlen, Vergleich zur Vorgänger-Einheit
   demo.js               Testdaten (3 Wochen, erfunden)
@@ -71,8 +72,9 @@ js/ui/                  Bildschirme, je ein Modul
   dom.js                Bausteine: h(), Felder, Punkte, Ring, Diagramm (eigenes SVG)
   heute.js  kalender.js  tag.js  training.js  fortschritt.js  mehr.js  rezepte.js (#rezepte, erreichbar über „Mehr“)
   symbole.js (eigene SVG-Symbole; uebungsArt(name) ordnet Übungen/Sportarten Symbol und Farbgruppe zu; kachel())
+  wertung.js (Anzeige der Wertung: große Zahl + drei Bereichsbalken)
   cloud.js (#cloud, Claude-Verbindung)  vorschau.js (Import-Vorschau, von Einfüge-Import und Dropbox-Eingang benutzt)
-tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
+tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), wertung (Tages- und Wochenwertung), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
 tools/                  server.mjs (Vorschau), make-icons.mjs
 ```
 
@@ -115,6 +117,20 @@ Status: `gruen` geschafft · `gelb` knapp · `rot` verfehlt · `grau` trifft nic
 - **Regel 15 Uhr:** ab 15:00 und Schritte unter `schritte_pflicht_grenze` → „Laufband heute Abend: Pflicht“.
 - **Gewicht:** Hauptlinie ist der 7-Tage-Schnitt (`gleitSchnitt`). **Bauchumfang** ist die Hauptkennzahl, mit linearem Zielpfad.
 - Schlaf und Stress werden erfasst und angezeigt, nicht bewertet.
+
+## Tages- und Wochenwertung in Prozent (seit 1.9, Umsetzung: `js/core/wertung.js`)
+
+Zusätzlich zu den Farbstatus der drei Bereiche. Pro Tag 0–100 %, nie mehr.
+
+- **Ernährung 50 %:** Kalorien 30 % (100 % im grünen Korridor des Tages; außerhalb linear fallend bis 0 % bei 500 kcal Abstand, zu wenig UND zu viel) + Eiweiß 20 % (`min(Eiweiß / eiweiss_min, 1)`).
+- **Training 25 %:** nur an Plantagen, abgeleitet vom Farbstatus: grün 100 %, gelb (verkürzt bzw. Laufband 15–24 Min.) 50 %, rot 0 %, heute noch offen 0 %. Grau/leer (kein Plantag, Bonus ausgefallen) wird nicht gewertet.
+- **Schritte 25 %:** `min(Schritte / Tagesziel, 1)`.
+- **Nicht gewertete Bereiche** (kein Plantag, keine Schritte eingetragen) geben ihr Gewicht anteilig an die übrigen ab. Fehlt nur der Eiweiß- oder nur der Kalorienwert, zählt innerhalb der Ernährung der vorhandene.
+- **Ohne Ernährungsdaten** ist der Tag nicht gewertet (grau), ebenso Tage in der Zukunft.
+- **Heute ist „vorläufig“**, bis der Tag vorbei ist. **Wochenwertung** = Durchschnitt der gewerteten Tage; die laufende Woche ist „vorläufig“.
+- **Guter Tag** = mindestens `wertung_guter_tag` (Startwert 80 %).
+- Gewichte und Grenzen stehen als Ziele mit `gueltig_ab` in den Daten: `wertung_kcal_pct`, `wertung_eiweiss_pct`, `wertung_training_pct`, `wertung_schritte_pct`, `wertung_kcal_null_abstand`, `wertung_guter_tag` (Mehr → Einstellungen → Tageswertung).
+- **Anzeige** (`wertungBlock()` in `js/ui/wertung.js`): groß die Prozentzahl, darunter immer die drei Bereiche als Balken. Auf „Heute“ und in der Tagesansicht zeigt der Punkt vor dem Balken den Farbstatus des Bereichs, der Balken selbst ist neutral. Im Kalender: Zahl je Tag im Monatsraster (`*` = vorläufig), Wochenwertung in „Diese Woche“ und in der Wochentabelle. Auch im Check-in und im Export (`wertung_pct`).
 
 ## Abend-Vorschläge „Für heute noch“ (seit 1.8)
 
