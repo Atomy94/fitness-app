@@ -61,6 +61,7 @@ js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   erstimport.js         health-data.json → App-Stand
   checkin.js            Wochenwerte und Text für Claude
   dropbox.js            Dropbox-API (OAuth mit PKCE ohne Weiterleitung, Dateien), fetch wird übergeben
+  eingang.js            Eingang verarbeiten: Auto-Importe je Datum auf die neueste Datei eindampfen, konfliktfrei nach erledigt/ verschieben, optional ohne Vorschau übernehmen
   claude-dateien.js     Inhalte für Claude: stand.md, rezepte.md, LIESMICH-fuer-Claude.md, Sicherung, Export
   rezepte.js            Kategorien, Nährwertfelder, Übernahme aus dem Archiv, Portion aus 100-g-Werten
   kraft.js              Verlauf je Übung (Gewicht × Wdh.), Kennzahlen, Vergleich zur Vorgänger-Einheit
@@ -70,7 +71,7 @@ js/ui/                  Bildschirme, je ein Modul
   heute.js  kalender.js  tag.js  training.js  fortschritt.js  mehr.js  rezepte.js (#rezepte, erreichbar über „Mehr“)
   symbole.js (eigene SVG-Symbole; uebungsArt(name) ordnet Übungen/Sportarten Symbol und Farbgruppe zu; kachel())
   cloud.js (#cloud, Claude-Verbindung)  vorschau.js (Import-Vorschau, von Einfüge-Import und Dropbox-Eingang benutzt)
-tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
+tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
 tools/                  server.mjs (Vorschau), make-icons.mjs
 ```
 
@@ -87,7 +88,7 @@ IndexedDB-Datenbank `fitness-app` (echte Daten) bzw. `fitness-app-demo` (Testdat
 | `messungen` | Liste, ein Eintrag je Datum+Quelle: `bauch_cm, koerperfett_pct, gewicht_kg, muskelmasse_kg, …, liegestuetze_max, kniebeugen_max, quelle, ungueltig, grund` |
 | `blutwerte` | Liste: `{ id, datum, name, wert, wert_text, einheit, norm_min, norm_max }` |
 | `ziele` | Liste: `{ id, schluessel, gueltig_ab, wert }` – Schlüssel siehe `ZIEL_INFO` / IMPORT-FORMAT.md |
-| `einstellungen` | `start, profil, phasen, minimal.zeitraeume[{von,bis}], minimalKraft, plan{maxMinuten, wochenplan{1..7}, wochenplanAlt[{bis, wochenplan}], einheiten{Name:[{ name, saetze, wdh, kg, kg_text, sek, pause_sek, notiz, schwer:{ name, wdh, kg, sek, saetze, pause_sek, notiz } }]}, progression}, zielpfad{von,bis}, pauseSek, supplements, letzteSicherung, eingerichtet, archiv` |
+| `einstellungen` | `start, profil, phasen, minimal.zeitraeume[{von,bis}], minimalKraft, plan{maxMinuten, wochenplan{1..7}, wochenplanAlt[{bis, wochenplan}], einheiten{Name:[{ name, saetze, wdh, kg, kg_text, sek, pause_sek, notiz, schwer:{ name, wdh, kg, sek, saetze, pause_sek, notiz } }]}, progression}, zielpfad{von,bis}, pauseSek, autoImportOhneVorschau, supplements, letzteSicherung, eingerichtet, archiv` |
 | `checkins` | Objekt je Montag: `{ verdauung, besonderheiten }` |
 | `rezepte` | Liste: `{ id, name, kategorie (Frühstück/Mittagessen/Abendessen/Snacks), bezug:'portion'|'100g', portion, zutaten:[{ name, menge }], kcal, eiweiss_g, kh_g, fett_g, ges_fett_g, zucker_g, ballaststoffe_g, salz_g, notiz }`. Fehlt die Sammlung (Stand aus 1.0), baut `ergaenze()` sie aus `einstellungen.archiv`. |
 | `entwurf` | laufendes Training (nicht Teil der Sicherung): Übungen mit Sätzen, `startMs`, `angehaltenSeit`, `angehaltenMs` (angehaltene Zeit zählt nicht zur Dauer), `pauseBis` (Satzpause) |
@@ -131,10 +132,15 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 ## Claude-Verbindung über Dropbox (seit 1.2)
 
 - **Einrichtung durch den Nutzer:** eigene Dropbox-App (Scoped access, „App folder“, Rechte `files.metadata.read`, `files.content.read`, `files.content.write`), App key in der App eintragen, bei Dropbox anmelden, angezeigten Code einfügen. Kein Redirect, kein Client-Secret.
-- **Gespeichert** wird die Verbindung unter dem Schlüssel `cloud` in der Datenbank `fitness-app` (`appKey, refreshToken, accessToken, ablauf, konto, letzterAbgleich, liesmichVersion, fehler`). Sie ist nicht Teil von Sicherung und Export. Im Testdaten-Modus ist der Abgleich aus.
+- **Gespeichert** wird die Verbindung unter dem Schlüssel `cloud` in der Datenbank `fitness-app` (`appKey, refreshToken, accessToken, ablauf, konto, letzterAbgleich, liesmichVersion, fehler, protokoll`). Sie ist nicht Teil von Sicherung und Export. Im Testdaten-Modus ist der Abgleich aus.
 - **Ordner** (relativ zum App-Ordner `Apps/<Name>/`): `stand.md`, `rezepte.md`, `LIESMICH-fuer-Claude.md`, `sicherung/fitness-sicherung.json` (App schreibt), `eingang/` (Claude legt Import-Dateien ab), `erledigt/` (App verschiebt Verarbeitetes).
 - **Abgleich** (`abgleichen()`): lädt die vier Dateien hoch, listet `eingang/`, lädt neue Dateien und prüft sie mit `leseImport`. Automatisch 1,5 s nach dem Start, beim Zurückkehren in die App (wenn älter als 2 Min.) und 15 s nach einer Änderung.
-- **Nichts wird automatisch übernommen.** Jede Datei erscheint mit Vorschau unter „Claude-Verbindung“ (Hinweis auf „Heute“); „Übernehmen“ oder „Verwerfen“ verschiebt sie nach `erledigt/`.
+- **Jede Datei erscheint mit Vorschau** unter „Claude-Verbindung“ (Hinweis auf „Heute“); „Übernehmen“ oder „Verwerfen“ verschiebt sie nach `erledigt/`. Einzige Ausnahme: Auto-Importe mit eingeschalteter Einstellung (nächster Punkt).
+- **Auto-Import aus dem Kurzbefehl (seit 1.6):** Ein iOS-Kurzbefehl legt bei jedem Schließen von Yazio `eingang/import-auto-JJJJ-MM-TT.txt` mit genau einem `tag`-Eintrag ab; durch die Dropbox entstehen Varianten (`-2`, „conflicted copy“, `(1)`). `verarbeiteEingang()` in `js/core/eingang.js` gruppiert alle `import-auto-`-Dateien nach dem **Datum im Inhalt**, behält je Datum die neueste (`server_modified`) und verschiebt ältere ohne Rückfrage nach `erledigt/`. Ungültige Auto-Dateien zählen nicht als neueste. Andere Dateien bleiben unberührt.
+- **Einstellung `einstellungen.autoImportOhneVorschau`** (Standard aus, Schalter unter „Claude-Verbindung“): übernimmt die neueste gültige Auto-Datei je Datum direkt. Gilt nur für `tag`-Einträge aus `import-auto-`-Dateien. `js/cloud.js` wendet die Einträge am Ende des Abgleichs auf den dann aktuellen Stand an, damit Eingaben während des Abgleichs nicht verloren gehen.
+- **Protokoll:** `cloud.protokoll` (höchstens 30 Einträge: übersprungen / übernommen mit alter → neuer Wert) wird unter „Claude-Verbindung“ angezeigt.
+- **Verschieben ohne Namenskonflikt:** `erledigtName()` hängt bei vorhandenem Namen in `erledigt/` einen Zeitstempel an (`name__JJJJ-MM-TTTHHMM.txt`, Berliner Zeit); nichts wird überschrieben.
+- **Reihenfolge im Abgleich:** erst Eingang verarbeiten, dann `stand.md`, `rezepte.md` und Sicherung hochladen (so enthalten sie übernommene Auto-Importe schon).
 - Der erfolgreiche Abgleich setzt `letzteSicherung` (die Dropbox-Sicherung zählt).
 - `LIESMICH-fuer-Claude.md` wird neu hochgeladen, wenn sich App-Version oder `LIESMICH_VERSION` ändert. Bei Änderungen am Importformat den Text in `liesmichDatei()` anpassen.
 - **Prüfstand (15.11.2026):** Anmeldung und erster Abgleich mit dem echten Dropbox-Konto des Nutzers funktionieren (Version 1.2.1). Der ganze Kreislauf ist bestätigt: Claudes Dropbox-Connector legt Dateien in `eingang/` an, die App holt sie ab und verschiebt sie nach `erledigt/` (dort liegen verarbeitete Importe vom 15.11.). Der App-Ordner des Nutzers liegt in der Dropbox unter `/Apps/` (Name der Dropbox-App).

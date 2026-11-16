@@ -182,6 +182,32 @@ Ist die App mit Dropbox verbunden (Mehr → Claude-Verbindung), muss nichts mehr
 - Die App holt die Datei beim nächsten Abgleich ab, zeigt die Vorschau und verschiebt sie nach „Übernehmen“ oder „Verwerfen“ nach `erledigt/`.
 - Die Anleitung für Claude liegt im selben Ordner als `LIESMICH-fuer-Claude.md` (erzeugt von `liesmichDatei()` in `js/core/claude-dateien.js`; ein Test prüft, dass sie alle Typen, Felder und Zielschlüssel nennt).
 
+## Auto-Import aus dem Kurzbefehl (ab App-Version 1.6)
+
+Ein iOS-Kurzbefehl („Fitness-Import“) schreibt bei jedem Schließen von Yazio die Tageswerte aus Apple Health nach `eingang/`.
+
+- **Dateiname:** `import-auto-JJJJ-MM-TT.txt`. Weil die Dropbox auf dem iPhone nicht sauber überschreibt, entstehen auch Varianten wie `import-auto-2026-11-16-2.txt`, `import-auto-2026-11-16 (… conflicted copy).txt` oder `… (1).txt`.
+- **Erkennung:** jede Datei in `eingang/`, deren Name mit `import-auto-` beginnt und auf `.txt` oder `.md` endet (Groß-/Kleinschreibung egal).
+- **Inhalt:** genau ein Eintrag vom Typ `tag` im Format `FITNESS-IMPORT v1`. Nur dann gilt die Datei als gültiger Auto-Import.
+
+```
+FITNESS-IMPORT v1
+{ "eintraege": [ { "typ": "tag", "datum": "2026-11-16", "kcal": 2180, "eiweiss_g": 165, "schritte": 8200, "gewicht_kg": null } ] }
+```
+
+Regeln beim Abgleich (Umsetzung: `js/core/eingang.js`, Tests: `tests/eingang.test.mjs`):
+
+1. **Gruppiert wird nach dem Feld `datum` im Inhalt**, nicht nach dem Dateinamen.
+2. **Pro Datum bleibt nur die neueste Datei** (maßgeblich: Änderungszeit `server_modified` der Dropbox, bei Gleichstand der Name). Nur sie erscheint in der Vorschau.
+3. **Ältere Auto-Dateien desselben Datums** wandern ohne Rückfrage nach `erledigt/`. Unter „Claude-Verbindung“ steht ein Hinweis, z. B. „2 ältere Auto-Importe für 16.11. übersprungen“.
+4. **Ungültige Auto-Dateien** (nicht lesbar, kein oder mehr als ein Eintrag, anderer Typ) zählen nicht als „neueste“. Nicht lesbare werden als abgelehnt angezeigt; nichts wird gespeichert.
+5. **Alle anderen Dateien** in `eingang/` (z. B. von Claude) bleiben unverändert und werden einzeln mit Vorschau behandelt.
+6. **`null` bedeutet weiterhin „nicht ändern“.** `"gewicht_kg": null` löscht ein von Hand eingetragenes Gewicht nicht.
+
+**Einstellung „Auto-Importe ohne Vorschau übernehmen“** (Standard: aus, unter Mehr → Claude-Verbindung): Ist sie an, wird die neueste gültige Auto-Datei je Datum direkt übernommen und nach `erledigt/` verschoben. Unter „Claude-Verbindung“ steht, was übernommen wurde (Datum, alter → neuer Wert). Das gilt **nur** für Tageswerte aus `import-auto-`-Dateien; für alle anderen Importe bleibt die Vorschau mit „Übernehmen“ Pflicht.
+
+**Verschieben nach `erledigt/`:** Liegt dort schon eine Datei gleichen Namens, wird nichts überschrieben. Die neue Datei bekommt einen Zeitstempel (Berliner Zeit) im Namen, z. B. `import-auto-2026-11-16__2026-11-16T2046.txt`. Das gilt für jedes Verschieben, auch nach „Übernehmen“ und „Verwerfen“.
+
 ## Gegenrichtung
 
 - **Wochen-Check-in → „Für Claude kopieren“:** Text mit allen Wochenwerten plus eine Zeile `JSON:` mit kompaktem JSON der Woche.

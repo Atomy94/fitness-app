@@ -7,7 +7,7 @@ import { fmt } from '../core/zahl.js';
 
 const ART_TEXT = { neu: 'neu', aenderung: 'wird geändert', ersetzt: 'wird ersetzt', gleich: 'unverändert', uebersprungen: 'wird übersprungen' };
 const ART_STATUS = { neu: 'gruen', aenderung: 'gelb', ersetzt: 'gelb', gleich: 'grau', uebersprungen: 'grau' };
-const wertText = (v) => (v === null || v === undefined ? '–' : v === true ? 'ja' : v === false ? 'nein' : typeof v === 'number' ? fmt(v, 2) : String(v));
+export const wertText = (v) => (v === null || v === undefined ? '–' : v === true ? 'ja' : v === false ? 'nein' : typeof v === 'number' ? fmt(v, 2) : String(v));
 
 /**
  * ergebnis: Rückgabe von leseImport(). ersetzen: { [index]: false } für abgewählte Trainings.

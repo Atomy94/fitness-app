@@ -1,8 +1,10 @@
 // Bildschirm "Claude-Verbindung": Dropbox einrichten, abgleichen, Eingang von Claude bestätigen.
 
-import { S, neu, setzeState, meldung } from '../store.js';
+import { S, neu, setzeState, speichern, meldung } from '../store.js';
 import { h, karte, textFeld, kopiere } from './dom.js';
-import { vorschauKarte } from './vorschau.js';
+import { vorschauKarte, wertText } from './vorschau.js';
+import { FELD_NAMEN } from '../core/import.js';
+import { deKurz } from '../core/datum.js';
 import { istVerbunden, anmeldungVorbereiten, anmeldungAbschliessen, anmeldungVerwerfen, offeneAnmeldung, trennen, abgleichen, erledige } from '../cloud.js';
 
 const form = { appKey: '', code: '', url: '', beschaeftigt: false };
@@ -90,6 +92,31 @@ function eingangKarten() {
   });
 }
 
+/** Auto-Importe des Kurzbefehls: Einstellung und Protokoll (was übersprungen, was übernommen wurde). */
+function autoKarte() {
+  const e = S.state.einstellungen;
+  const haken = h('input', { type: 'checkbox', style: 'width:24px;height:24px;flex:none', onchange: () => {
+    e.autoImportOhneVorschau = haken.checked;
+    speichern('einstellungen');
+    meldung(haken.checked ? 'Auto-Importe werden ab jetzt direkt übernommen' : 'Auto-Importe brauchen wieder deine Bestätigung');
+  } });
+  haken.checked = !!e.autoImportOhneVorschau;
+  const protokoll = (S.cloud.protokoll || []).filter((p) => p.art !== 'unveraendert').slice(0, 12);
+  const zeile = (p) => {
+    if (p.art === 'uebersprungen') {
+      return h('li', null, h('span', { class: 'wachs' }, `${p.anzahl} ${p.anzahl === 1 ? 'älterer Auto-Import' : 'ältere Auto-Importe'} für ${deKurz(p.datum)} übersprungen`, h('div', { class: 'klein' }, zeit(p.zeit))));
+    }
+    return h('li', null, h('span', { class: 'wachs' }, h('b', null, `Auto-Import für ${deKurz(p.datum)} übernommen`),
+      (p.felder || []).map((x) => h('div', { class: 'diff' }, `${FELD_NAMEN[x.feld] || x.feld}: `, x.alt === null || x.alt === undefined ? null : [h('s', null, wertText(x.alt)), ' → '], h('b', null, wertText(x.neu)))),
+      h('div', { class: 'klein' }, zeit(p.zeit))));
+  };
+  return karte('Auto-Import aus dem Kurzbefehl',
+    h('p', { class: 'klein' }, 'Dateien, deren Name mit „import-auto-“ beginnt. Pro Tag zählt nur die neueste; ältere wandern von selbst in den Ordner „erledigt“.'),
+    h('label', { class: 'zeile abstand', style: 'min-height:48px' }, haken, h('span', { class: 'wachs' }, h('b', null, 'Auto-Importe ohne Vorschau übernehmen'), h('div', { class: 'klein' }, 'Gilt nur für Tageswerte aus diesen Dateien. Alles andere bestätigst du weiterhin selbst.'))),
+    protokoll.length ? h('ul', { class: 'liste abstand' }, protokoll.map(zeile)) : h('p', { class: 'klein abstand' }, 'Noch nichts übersprungen oder automatisch übernommen.'),
+  );
+}
+
 function verbunden() {
   const c = S.cloud;
   const demo = S.modus === 'demo';
@@ -109,6 +136,7 @@ function verbunden() {
       h('p', { class: 'klein abstand' }, 'Automatisch beim Öffnen der App und kurz nach jeder Änderung. Die Sicherung in der Dropbox zählt als Sicherung.'),
     ),
     ...(demo ? [] : eingangKarten()),
+    autoKarte(),
     karte('So sagst du es Claude',
       h('p', { class: 'klein' }, 'In Claude muss der Dropbox-Connector aktiviert sein. Schreibe einmal zu Beginn eines Chats (oder dauerhaft in die Projekt-Anweisungen):'),
       h('pre', { class: 'block abstand' }, SATZ_FUER_CLAUDE),

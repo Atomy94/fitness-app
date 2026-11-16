@@ -46,6 +46,7 @@ export function standardEinstellungen(start) {
     plan: { maxMinuten: 30, wochenplan: standardWochenplan(), einheiten: standardEinheiten(), progression: '' },
     zielpfad: { von: start, bis: plusTage(start, 203) }, // Bauchumfang: linear von Start- auf Zielwert
     pauseSek: 60,
+    autoImportOhneVorschau: false, // Auto-Importe des Kurzbefehls ohne Vorschau übernehmen (siehe core/eingang.js)
     supplements: [],
     letzteSicherung: null,
     eingerichtet: false,

@@ -1,15 +1,17 @@
 // Abgleich mit dem Dropbox-Ordner (Schnittstelle zu Claude).
 // Hochladen: stand.md, rezepte.md, Sicherung, Anleitung. Abholen: Dateien aus "eingang/".
-// Übernommen wird nichts automatisch – der Nutzer bestätigt jede Datei nach der Vorschau.
+// Der Nutzer bestätigt jede Datei nach der Vorschau. Einzige Ausnahme: Auto-Importe des Kurzbefehls,
+// wenn er die Einstellung "Auto-Importe ohne Vorschau übernehmen" eingeschaltet hat (siehe core/eingang.js).
 
 import { S, heuteIso, speichernStill, speichereCloud, beiAenderung, meldung, neu } from './store.js';
 import { pkce, anmeldeUrl, tauscheCode, erneuereToken, dropbox, DropboxFehler } from './core/dropbox.js';
-import { DATEI, ORDNER, LIESMICH_VERSION, standDatei, rezepteDatei, liesmichDatei, sicherungText } from './core/claude-dateien.js';
-import { leseImport } from './core/import.js';
+import { DATEI, LIESMICH_VERSION, standDatei, rezepteDatei, liesmichDatei, sicherungText } from './core/claude-dateien.js';
+import { verarbeiteEingang, verschiebeNachErledigt, erledigtNamen } from './core/eingang.js';
+import { verarbeite } from './core/import.js';
+import { deKurz } from './core/datum.js';
 import { VERSION } from './version.js';
 
 const f = (...a) => fetch(...a);
-const MAX_DATEI = 1024 * 1024;
 
 export const istVerbunden = () => !!(S.cloud && S.cloud.refreshToken && S.cloud.appKey);
 export const aktiv = () => istVerbunden() && S.modus === 'echt';
@@ -80,6 +82,22 @@ export function abgleichen({ stumm = true } = {}) {
       geaendert = false;
       const d = box();
       const jetzt = new Date();
+
+      // Zuerst der Eingang: Auto-Importe aufräumen (und, wenn eingestellt, übernehmen),
+      // damit die anschließend hochgeladenen Dateien schon den neuen Stand zeigen.
+      const e = await verarbeiteEingang({ box: d, state: S.state, bekannt: S.eingang, autoOhneVorschau: !!S.state.einstellungen.autoImportOhneVorschau, jetzt });
+      const uebernommen = e.protokoll.filter((p) => p.art === 'uebernommen');
+      if (e.geaendert) {
+        // Auf den JETZT aktuellen Stand anwenden: Eingaben während des Abgleichs bleiben erhalten.
+        let stand = S.state;
+        for (const p of uebernommen) stand = verarbeite(stand, p.eintraege).state;
+        S.state = stand;
+        await speichernStill();
+      }
+      S.eingang = e.eingang;
+      const neue = e.neue;
+      if (e.protokoll.length) c.protokoll = [...e.protokoll.map(({ eintraege, ...p }) => ({ ...p, zeit: jetzt.toISOString() })).reverse(), ...(c.protokoll || [])].slice(0, 30);
+
       const zeit = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }).format(jetzt);
       await d.hochladen(DATEI.stand, standDatei(S.state, heuteIso(), zeit, VERSION));
       await d.hochladen(DATEI.rezepte, rezepteDatei(S.state, heuteIso()));
@@ -89,29 +107,16 @@ export function abgleichen({ stumm = true } = {}) {
         c.liesmichVersion = `${VERSION}/${LIESMICH_VERSION}`;
       }
 
-      const dateien = (await d.liste(ORDNER.eingang)).sort((a, b) => (a.name < b.name ? -1 : 1));
-      const bekannt = new Map(S.eingang.map((e) => [`${e.pfad}|${e.geaendert}`, e]));
-      const eingang = [];
-      let neue = 0;
-      for (const datei of dateien.slice(0, 30)) {
-        const alt = bekannt.get(`${datei.pfad}|${datei.geaendert}`);
-        if (alt) { eingang.push(alt); continue; }
-        const text = datei.groesse > MAX_DATEI ? '' : await d.herunterladen(datei.pfad);
-        const ergebnis = datei.groesse > MAX_DATEI ? { ok: false, fehler: ['Die Datei ist zu groß (über 1 MB).'], eintraege: [], hinweise: [] } : leseImport(text);
-        eingang.push({ ...datei, text, ergebnis, ersetzen: {} });
-        neue++;
-      }
-      S.eingang = eingang;
-
       c.letzterAbgleich = jetzt.toISOString();
       c.fehler = null;
       await speichereCloud();
       // Die Sicherung in der Dropbox zählt als Sicherung.
       S.state.einstellungen.letzteSicherung = heuteIso();
       await speichernStill('einstellungen');
-      if (!stumm) meldung(neue ? `Abgeglichen – ${neue} neue ${neue === 1 ? 'Datei' : 'Dateien'} von Claude` : 'Abgeglichen');
-      else if (neue) meldung(`Claude hat ${neue} neue ${neue === 1 ? 'Datei' : 'Dateien'} abgelegt`);
-      return { ok: true, neu: neue, fehler: null };
+      const auto = uebernommen.length ? `Auto-Import übernommen (${uebernommen.map((p) => deKurz(p.datum)).join(', ')})` : '';
+      if (!stumm) meldung([neue ? `${neue} neue ${neue === 1 ? 'Datei' : 'Dateien'} im Eingang` : '', auto].filter(Boolean).join(' · ') || 'Abgeglichen');
+      else if (neue || auto) meldung([neue ? `${neue} neue ${neue === 1 ? 'Datei' : 'Dateien'} im Eingang` : '', auto].filter(Boolean).join(' · '));
+      return { ok: true, neu: neue, geaendert: e.geaendert, fehler: null };
     } catch (e) {
       const text = e instanceof DropboxFehler ? e.message : `Abgleich fehlgeschlagen: ${e && e.message ? e.message : e}`;
       if (!(e instanceof DropboxFehler && e.offline)) { c.fehler = text; await speichereCloud(); }
@@ -127,8 +132,9 @@ export function abgleichen({ stumm = true } = {}) {
 
 /** Verschiebt eine verarbeitete (oder verworfene) Datei nach "erledigt/". */
 export async function erledige(eintrag) {
-  await box().ordner(ORDNER.erledigt);
-  await box().verschiebe(eintrag.pfad, `${ORDNER.erledigt}/${eintrag.name}`);
+  const d = box();
+  // Liegt dort schon eine Datei gleichen Namens, bekommt die neue einen Zeitstempel im Namen.
+  await verschiebeNachErledigt(d, eintrag, await erledigtNamen(d));
   S.eingang = S.eingang.filter((e) => e !== eintrag);
 }
 
@@ -140,7 +146,7 @@ const ruhig = () => !document.querySelector('[data-laeuft]') && !(document.activ
 async function automatisch() {
   if (!aktiv() || !navigator.onLine) return;
   const r = await abgleichen({ stumm: true });
-  if (r.ok && r.neu && ruhig()) neu();
+  if (r.ok && (r.neu || r.geaendert) && ruhig()) neu();
 }
 
 /** Beim Start aufrufen: gleicht ab beim Öffnen, beim Zurückkehren und kurz nach Änderungen. */
