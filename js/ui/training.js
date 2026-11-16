@@ -11,6 +11,10 @@ import { neueId, uebungsSchluessel, tagVon } from '../core/state.js';
 import { fmt } from '../core/zahl.js';
 import { uebungsVerlaeufe, vergleich, variante, zuletztSchwer, ergaenzePlanUebung } from '../core/kraft.js';
 import { pausenSignal } from '../core/signal.js';
+import { wachhalter } from '../core/wach.js';
+
+// Bildschirm bleibt an, solange ein Training läuft (wird beim Verlassen wieder freigegeben).
+const wach = wachhalter(navigator, document);
 import { WT_LANG, WT_KURZ, wochentag, wochenTage, montag, de, deKurz, deMitTag, istDatum } from '../core/datum.js';
 
 const enc = encodeURIComponent;
@@ -486,7 +490,8 @@ function startScreen(einheit, datumArg) {
   if (live) {
     tick();
     const takt = setInterval(tick, 500);
-    beiVerlassen(() => { clearInterval(takt); signalAbbrechen(); });
+    wach.an();
+    beiVerlassen(() => { clearInterval(takt); signalAbbrechen(); wach.aus(); });
   }
 
   const wechsleVersion = (u) => {

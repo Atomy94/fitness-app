@@ -67,6 +67,7 @@ js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   wertung.js            Tages- und Wochenwertung in Prozent (Gewichte und Grenzen aus den Zielen)
   vorschlag.js          Abend-Vorschläge „Für heute noch“ (rein rechnerisch), Startwerte der Snack-Liste
   signal.js             Zeitplan der Töne am Pausenende
+  wach.js               Bildschirm anlassen während des Trainings (Screen Wake Lock, still ohne Unterstützung)
   kraft.js              Verlauf je Übung (Gewicht × Wdh.), Kennzahlen, Vergleich zur Vorgänger-Einheit
   demo.js               Testdaten (3 Wochen, erfunden)
 js/ui/                  Bildschirme, je ein Modul
@@ -204,6 +205,7 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 - **Einfache und anspruchsvolle Version:** Hat eine Plan-Übung `schwer`, gibt es je Übung einen Knopf zum Wechseln (in der Übersicht und im laufenden Training). `variante()` in `js/core/kraft.js` baut die anspruchsvolle Version (erbt Sätze und Pause; Wdh./Sek./kg nur, wenn sie selbst nichts angibt). Vorbelegt wird die zuletzt trainierte Version (`zuletztSchwer()`). Beide Versionen haben eigene Namen und damit getrennte Verläufe unter „Steigerung je Übung“. Pflegbar unter Mehr → Trainingsplan oder per Import (`einheit`, Feld `schwer`).
 - **Pause je Übung:** `pause_sek` im Plan ist die vorgeschriebene Pause nach jedem Satz. Nach ✓ startet der Timer mit genau diesem Wert und zeigt „Soll … Sek.“. Ohne Angabe gilt `einstellungen.pauseSek` (Standard-Pause). Einstellbar unter Mehr → Trainingsplan (Feld „Pause“) oder per Import (`einheit`).
 - **Pausen-Signal (seit 1.12):** bei 3 und 2 Sekunden Restzeit ein kurzer Ton, in der letzten Sekunde ein langer Ton bis zum Pausenende. Der Zeitplan kommt aus `pausenSignal()` (`js/core/signal.js`, getestet); `signalPlanen()` in `js/ui/training.js` plant die Töne beim Start der Pause fest auf der Web-Audio-Uhr ein und plant bei „+15 s“ neu; „Pause aus“, Anhalten und Verlassen brechen ab. Freigeschaltet wird Web Audio beim ersten Tippen im Training (`tonBereit()`), wie iOS es verlangt. Ausgabe über das aktive Gerät (auch Kopfhörer).
+- **Bildschirm bleibt an (seit 1.13):** Während eines laufenden Trainings (nicht beim Nachtragen und nicht in der Übersicht davor) hält `wachhalter()` aus `js/core/wach.js` den Bildschirm über die Screen-Wake-Lock-Schnittstelle an. Beim Beenden, Verwerfen oder Verlassen wird freigegeben. Geht die App in den Hintergrund, gibt das System frei; bei der Rückkehr wird neu angefordert. Fehlt die Unterstützung oder lehnt das Gerät ab (z. B. Stromsparmodus), passiert still nichts.
 - Timer oben: **Anhalten/Fortsetzen** (ganze Einheit, Zeit steht) und **Beenden** (speichert bestätigte Sätze, fragt bei offenen Sätzen nach). Darunter die Satzpause, die nach jedem ✓ automatisch startet.
 - Jede gespeicherte Einheit hält je Übung alle Sätze mit Gewicht und Wiederholungen fest.
 - **„Steigerung je Übung“** (auf „Training“ und „Fortschritt“): letzter Stand je Übung, Veränderung zur vorherigen Einheit und seit dem ersten Eintrag. Detail je Übung: Bestwert, Diagramme (Gewicht, Wiederholungen, Gewicht × Wdh.), alle Einträge mit Veränderung.

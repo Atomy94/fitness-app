@@ -3,7 +3,7 @@
 // UPDATE: VERSION erhöhen (gleich wie in js/version.js). Dann holt sich das iPhone beim
 // nächsten Öffnen alle Dateien neu. Neue Dateien müssen in DATEIEN stehen (ein Test prüft das).
 
-const VERSION = '1.12.0';
+const VERSION = '1.13.0';
 const CACHE = `fitness-${VERSION}`;
 const DATEIEN = [
   './',
@@ -32,6 +32,7 @@ const DATEIEN = [
   './js/core/signal.js',
   './js/core/state.js',
   './js/core/vorschlag.js',
+  './js/core/wach.js',
   './js/core/wertung.js',
   './js/core/zahl.js',
   './js/core/ziele.js',
