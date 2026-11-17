@@ -66,6 +66,7 @@ js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   rezepte.js            Kategorien, Nährwertfelder, Übernahme aus dem Archiv, Portion aus 100-g-Werten
   wertung.js            Tages- und Wochenwertung in Prozent (Gewichte und Grenzen aus den Zielen)
   vorschlag.js          Abend-Vorschläge „Für heute noch“ (rein rechnerisch), Startwerte der Snack-Liste
+  check.js              Check vor dem Training: Stufe aus drei Antworten, Vorschlag auf die Übungsliste anwenden
   signal.js             Zeitplan der Töne am Pausenende
   wach.js               Bildschirm anlassen während des Trainings (Screen Wake Lock, still ohne Unterstützung)
   kraft.js              Verlauf je Übung (Gewicht × Wdh.), Kennzahlen, Vergleich zur Vorgänger-Einheit
@@ -76,7 +77,7 @@ js/ui/                  Bildschirme, je ein Modul
   symbole.js (eigene SVG-Symbole; uebungsArt(name) ordnet Übungen/Sportarten Symbol und Farbgruppe zu; kachel())
   wertung.js (Anzeige der Wertung: große Zahl + drei Bereichsbalken)
   cloud.js (#cloud, Claude-Verbindung)  vorschau.js (Import-Vorschau, von Einfüge-Import und Dropbox-Eingang benutzt)
-tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), wertung (Tages- und Wochenwertung, Wochendiagramm), streak (Streak mit Joker), sonntag (Sonntags-Hinweis), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
+tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), wertung (Tages- und Wochenwertung, Wochendiagramm), streak (Streak mit Joker), sonntag (Sonntags-Hinweis), check (Check vor dem Training), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
 tools/                  server.mjs (Vorschau), make-icons.mjs
 ```
 
@@ -89,7 +90,7 @@ IndexedDB-Datenbank `fitness-app` (echte Daten) bzw. `fitness-app-demo` (Testdat
 | Sammlung | Inhalt |
 |---|---|
 | `tage` | Objekt je Datum: `kcal, eiweiss_g, kh_g, fett_g, ballaststoffe_g, ges_fett_g, zucker_g, salz_g, schritte, gewicht_kg, schlaf_h, schlaf_qualitaet, stress, kreatin, fussball, notiz, ungenau` |
-| `trainings` | Liste. Kraft: `{ id, typ:'kraft', datum, einheit, dauer_min, verkuerzt, uebungen:[{ name, saetze:[{ wdh, kg, sek }], notiz }], notiz }` · Cardio: `{ id, typ:'cardio', datum, art, dauer_min, km, notiz }` |
+| `trainings` | Liste. Kraft: `{ id, typ:'kraft', datum, einheit, dauer_min, verkuerzt, ersetzt, check_muskelkater, check_schlaf, check_energie, check_regionen, check_vorschlag, check_angenommen, uebungen:[{ name, saetze:[{ wdh, kg, sek }], notiz }], notiz }` · Cardio: `{ id, typ:'cardio', datum, art, dauer_min, km, notiz }` |
 | `messungen` | Liste, ein Eintrag je Datum+Quelle: `bauch_cm, koerperfett_pct, gewicht_kg, muskelmasse_kg, …, liegestuetze_max, kniebeugen_max, quelle, ungueltig, grund` |
 | `blutwerte` | Liste: `{ id, datum, name, wert, wert_text, einheit, norm_min, norm_max }` |
 | `ziele` | Liste: `{ id, schluessel, gueltig_ab, wert }` – Schlüssel siehe `ZIEL_INFO` / IMPORT-FORMAT.md |
@@ -110,7 +111,7 @@ Status: `gruen` geschafft · `gelb` knapp · `rot` verfehlt · `grau` trifft nic
 - **Training** (nur an Plantagen, sonst grau; vor `einstellungen.start` und in der Zukunft leer):
   - `kraft` (Mo/Do): erledigt grün, verkürzt gelb, ausgefallen rot. Jede Krafteinheit an dem Tag zählt.
   - `laufband` (Di/Fr): Minuten des Tages zusammengezählt, ab 25 grün, ab 15 gelb, sonst rot. In der Minimalversion grau.
-  - `bonus` (Sa): Krafteinheit grün, sonst grau.
+  - `bonus` (Sa): Krafteinheit grün, durch Bewegung ersetzt (`ersetzt`) gelb, sonst grau.
   - `fussball` (So): gespielt grün; ausgefallen + Spaziergang ab 45 Min. grün; sonst rot.
   - Training ohne Wertung wird als Zusatz mit Stern gezeigt.
 - **Fußball und Kalorien:** Schalter `tag.fussball`. Ohne Schalter: Fußball-Einheit eingetragen = gespielt; heute/Zukunft = laut Plan gespielt; vergangener Tag = nicht gespielt (dann gilt das Mo–Sa-Ziel).
@@ -208,6 +209,8 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 - **Pausen-Signal (seit 1.12):** bei 3 und 2 Sekunden Restzeit ein kurzer Ton, in der letzten Sekunde ein langer Ton bis zum Pausenende. Der Zeitplan kommt aus `pausenSignal()` (`js/core/signal.js`, getestet); `signalPlanen()` in `js/ui/training.js` plant die Töne beim Start der Pause fest auf der Web-Audio-Uhr ein und plant bei „+15 s“ neu; „Pause aus“, Anhalten und Verlassen brechen ab. Freigeschaltet wird Web Audio beim ersten Tippen im Training (`tonBereit()`), wie iOS es verlangt. Ausgabe über das aktive Gerät (auch Kopfhörer).
 - **Bildschirm bleibt an (seit 1.13):** Während eines laufenden Trainings (nicht beim Nachtragen und nicht in der Übersicht davor) hält `wachhalter()` aus `js/core/wach.js` den Bildschirm über die Screen-Wake-Lock-Schnittstelle an. Beim Beenden, Verwerfen oder Verlassen wird freigegeben. Geht die App in den Hintergrund, gibt das System frei; bei der Rückkehr wird neu angefordert. Fehlt die Unterstützung oder lehnt das Gerät ab (z. B. Stromsparmodus), passiert still nichts.
 - **Bestwert-Meldung (seit 1.14):** Nach jedem bestätigten Satz prüft `rekord()` (`js/core/kraft.js`) gegen alle früheren Sätze der Übung (frühere Einheiten plus die heute schon bestätigten). Mit Gewicht, in dieser Reihenfolge: mehr Gewicht als je zuvor bei mindestens so vielen Wiederholungen (üblicher „Wiederholungs-Bestwert“: 16 kg × 10 zählt auch nach 14 kg × 12), mehr Wiederholungen bei gleichem Gewicht, höchster Satz (kg × Wdh.). Ohne Gewicht zählen Wiederholungen bzw. Sekunden. Ohne frühere Einheit gibt es keinen Rekord. Die App blendet „Neuer Rekord: Übung 16 kg × 12“ ein und markiert den Satz. `markiereRekorde()` kennzeichnet im Übungsverlauf die Einheiten, in denen ein Rekord fiel.
+- **Check vor dem Training (seit 1.16, Logik `js/core/check.js`):** Beim Live-Start einer Krafteinheit fragt die Übersicht (`checkKarte()` in `js/ui/training.js`) Muskelkater, Schlaf, Energie je 1–5 (5 = gut), bei Muskelkater ≤ 2 auch die Regionen (Oberkörper/Beine/Rumpf, mehrere). Stufe nach Summe (`checkStufe()`, Grenzen als Ziele `check_normal_ab` 11, `check_leicht_ab` 7, `check_reduziert_ab` 4): **normal** (Plan bleibt, anspruchsvolle Version je Übung wählbar) · **leicht** (alle einfach, Übungen der Muskelkater-Regionen je ein Satz weniger, Region über `uebungsRegion()`) · **reduziert** (unter 7 oder ein Wert = 1: alle einfach, höchstens 2 Sätze, Hinweis „Heute kurz halten …“) · **ersatz** (unter 4: Spaziergang/Laufband statt Kraft). Vorschlag mit Begründung; „Vorschlag übernehmen“ oder „Trotzdem normal“. Ohne Antworten startet das Training wie bisher. Gespeichert an der Einheit: `check_muskelkater, check_schlaf, check_energie, check_regionen, check_vorschlag, check_angenommen`; Anzeige im Einheiten-Detail (`checkZeile()`).
+- **Wertung mit Check:** angepasster Vorschlag vollständig = erledigt (grün); mit offenen Sätzen beendet = automatisch verkürzt. Ersatz legt eine Krafteinheit mit `ersetzt: true, verkuerzt: true` und ohne Übungen an (gelb, 50 %; am Bonus-Tag ebenfalls gelb statt grün) und öffnet „Cardio eintragen“.
 - Timer oben: **Anhalten/Fortsetzen** (ganze Einheit, Zeit steht) und **Beenden** (speichert bestätigte Sätze, fragt bei offenen Sätzen nach). Darunter die Satzpause, die nach jedem ✓ automatisch startet.
 - Jede gespeicherte Einheit hält je Übung alle Sätze mit Gewicht und Wiederholungen fest.
 - **„Steigerung je Übung“** (auf „Training“ und „Fortschritt“): letzter Stand je Übung, Veränderung zur vorherigen Einheit und seit dem ersten Eintrag. Detail je Übung: Bestwert, Diagramme (Gewicht, Wiederholungen, Gewicht × Wdh.), alle Einträge mit Veränderung.

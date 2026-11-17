@@ -80,7 +80,7 @@ const wertZeile = (name, wert, status, zusatz) => h('li', null,
 );
 
 export function einheitText(t) {
-  if (t.typ === 'kraft') return `${t.einheit}${t.verkuerzt ? ' (verkürzt)' : ''}${t.dauer_min ? ` · ${t.dauer_min} Min.` : ''}`;
+  if (t.typ === 'kraft') return `${t.einheit}${t.ersetzt ? ' (durch Bewegung ersetzt)' : t.verkuerzt ? ' (verkürzt)' : ''}${t.dauer_min ? ` · ${t.dauer_min} Min.` : ''}`;
   return `${t.art}${t.dauer_min ? ` · ${t.dauer_min} Min.` : ''}${t.km ? ` · ${fmt(t.km, 2)} km` : ''}`;
 }
 

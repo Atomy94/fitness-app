@@ -68,6 +68,15 @@ Sonderfall: Ist ein Tag als „Werte ungenau“ markiert und der Import liefert 
 | `uebungen` | Liste | je Übung: `name` (Pflicht), `saetze` (Liste), `notiz` |
 | `uebungen[].saetze[]` | Objekt | `wdh` (ganze Zahl), `kg` (Zahl, 0 = Körpergewicht), `sek` (für Halteübungen) |
 | `notiz` | Text | |
+| `check_muskelkater` | ganze Zahl 1–5 | ab 1.16, Check vor dem Training: 5 = kein Muskelkater, 1 = stark |
+| `check_schlaf` | ganze Zahl 1–5 | 5 = sehr gut, 1 = sehr schlecht |
+| `check_energie` | ganze Zahl 1–5 | 5 = voll da, 1 = platt |
+| `check_regionen` | Liste | Muskelkater-Regionen (nur bei Muskelkater 1–2): `"Oberkörper"`, `"Beine"`, `"Rumpf"` |
+| `check_vorschlag` | Text | Vorschlag der App: `normal`, `leicht`, `reduziert`, `ersatz` |
+| `check_angenommen` | true/false | Vorschlag übernommen (false = trotzdem normal trainiert) |
+| `ersetzt` | true/false | Kraft durch Spaziergang/Laufband ersetzt; zählt wie verkürzt (gelb, 50 %), auch am Bonus-Tag |
+
+Alle `check_`-Felder sind optional; ältere App-Versionen ignorieren sie.
 
 **Gleiches Datum und gleiche Einheit:** Die vorhandene Einheit wird **ersetzt** (nicht ergänzt). Die Vorschau fragt mit einem Haken „Vorhandene Einheit ersetzen“ nach; ohne Haken wird der Eintrag übersprungen.
 
@@ -119,6 +128,7 @@ Tage **vor** `gueltig_ab` werden weiter mit dem alten Wert bewertet.
 | `wertung_kcal_pct` / `wertung_eiweiss_pct` / `wertung_training_pct` / `wertung_schritte_pct` | Gewichte der Tageswertung in % (ab 1.9) | 30 / 20 / 25 / 25 |
 | `wertung_kcal_null_abstand` | Kalorien: 0 % bei diesem Abstand zum Korridor (kcal) | 500 |
 | `wertung_guter_tag` | Guter Tag ab … % | 80 |
+| `check_normal_ab` / `check_leicht_ab` / `check_reduziert_ab` | Check vor dem Training: Plan normal / einfache Version / reduzierte Einheit ab Summe (3–15); darunter Spaziergang statt Kraft (ab 1.16) | 11 / 7 / 4 |
 | `bauch_start` / `bauch_ziel` | Bauchumfang Start / Ziel (cm) | 102 / 92 |
 
 Ein unbekannter Schlüssel ist ein Fehler (die Meldung listet alle erlaubten Schlüssel).

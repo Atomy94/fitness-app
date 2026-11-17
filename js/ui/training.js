@@ -2,7 +2,8 @@
 // Liste aller Einheiten, Verlauf und Bestwert pro Übung.
 
 import { S, heuteIso, neu, speichern, speichereEntwurf, beiVerlassen, meldung } from '../store.js';
-import { h, karte, zahlFeld, textFeld, datumFeld, diagramm, STATUS_TEXT } from './dom.js';
+import { h, karte, zahlFeld, textFeld, datumFeld, diagramm, wahl as wahlFeld, STATUS_TEXT } from './dom.js';
+import { FRAGEN, REGIONEN, checkGrenzen, checkStufe, fragtRegionen, checkText, wendeVorschlagAn, checkFelder, checkZeile } from '../core/check.js';
 import { symbol, kachel, uebungsArt } from './symbole.js';
 import { tagBewertung } from '../core/bewertung.js';
 import { einheitText } from './tag.js';
@@ -181,7 +182,7 @@ function uebersicht() {
 const einheitZeile = (t) => h('a', { href: `#training/einheit/${t.id}` },
   einheitKachel(t, 'klein'),
   h('span', { class: 'wachs' }, h('b', null, t.typ === 'kraft' ? t.einheit : t.art),
-    h('div', { class: 'klein' }, `${WT_LANG[wochentag(t.datum) - 1].slice(0, 2)}, ${deKurz(t.datum)}${t.dauer_min ? ` · ${t.dauer_min} Min.` : ''}${t.km ? ` · ${fmt(t.km, 2)} km` : ''}${t.verkuerzt ? ' · verkürzt' : ''}`)),
+    h('div', { class: 'klein' }, `${WT_LANG[wochentag(t.datum) - 1].slice(0, 2)}, ${deKurz(t.datum)}${t.dauer_min ? ` · ${t.dauer_min} Min.` : ''}${t.km ? ` · ${fmt(t.km, 2)} km` : ''}${t.ersetzt ? ' · ersetzt' : t.verkuerzt ? ' · verkürzt' : ''}`)),
   h('span', { class: 'pfeil' }, '›'));
 
 function listeScreen() {
@@ -231,36 +232,114 @@ function entwurfUebung(planUebung, datum, schwer) {
 }
 
 /** wahl[i] = true: von Übung i die anspruchsvollere Version nehmen. */
-function neuerEntwurf(einheit, datum, wahl = []) {
+function neuerEntwurf(einheit, datum, wahl = [], saetze = [], check = null) {
   const { liste, gekuerzt, maxMin } = planListe(einheit, datum);
-  return {
+  const en = {
     einheit, datum, startMs: Date.now(), pauseBis: null, pauseGemeldet: true, zeitGemeldet: false,
     maxMin, gekuerzt, verkuerzt: false, notiz: '', dauer_min: null,
-    uebungen: liste.map((u, i) => entwurfUebung(u, datum, !!wahl[i])),
+    uebungen: liste.map((u, i) => {
+      const e = entwurfUebung(u, datum, !!wahl[i]);
+      // Satzzahl aus dem Check vor dem Training (weniger Sätze)
+      if (saetze[i]) e.saetze = e.saetze.slice(0, saetze[i]);
+      return e;
+    }),
   };
+  if (check) en.check = check;
+  return en;
 }
 
 // Auswahl auf der Übersicht vor dem Start (einfach/anspruchsvoll je Übung)
 let vorb = { einheit: null, datum: null, wahl: [] };
+
+/** Check vor dem Training: drei Fragen (5 = gut), danach Vorschlag annehmen oder normal trainieren. */
+function checkKarte(einheit, datum, liste, erg) {
+  const c = vorb.check;
+  const zuruecksetzen = () => {
+    if (vorb.wahlVorher) vorb.wahl = vorb.wahlVorher;
+    vorb.wahlVorher = null; vorb.saetze = []; vorb.entscheidung = null;
+  };
+  const teile = [h('p', { class: 'klein' }, 'Drei kurze Fragen – 5 heißt immer „gut“. Danach schlägt die App vor, wie du heute trainierst.')];
+  for (const f of FRAGEN) {
+    teile.push(wahlFeld({ label: `${f.titel} (1 = ${f.eins}, 5 = ${f.fuenf})`, werte: [1, 2, 3, 4, 5], wert: c[f.feld] ?? null,
+      onChange: (v) => { zuruecksetzen(); if (v === null) delete c[f.feld]; else c[f.feld] = v; neu(); } }));
+  }
+  if (fragtRegionen(c)) {
+    const knoepfe = REGIONEN.map((r) => h('button', { type: 'button', class: c.regionen.includes(r) ? 'an' : '', onclick: () => {
+      zuruecksetzen();
+      c.regionen = c.regionen.includes(r) ? c.regionen.filter((x) => x !== r) : [...c.regionen, r];
+      neu();
+    } }, r));
+    teile.push(h('div', { class: 'feld' }, h('span', null, 'Wo hast du Muskelkater? (mehrere möglich)'), h('div', { class: 'wahl', style: 'grid-template-columns: repeat(3, 1fr)' }, knoepfe)));
+  }
+  if (erg) {
+    const t = checkText(erg, c);
+    teile.push(h('div', { class: `hinweis ${erg.stufe === 'normal' ? 'ruhig' : 'info'}` }, t.titel, h('small', null, t.grund), t.hinweis ? h('small', null, h('b', null, t.hinweis)) : null));
+    const annehmen = () => {
+      const r = wendeVorschlagAn(liste, vorb.wahl, erg, c);
+      vorb.wahlVorher = [...vorb.wahl];
+      vorb.wahl = r.wahl; vorb.saetze = r.saetze; vorb.entscheidung = 'angenommen';
+      neu();
+    };
+    const normal = () => { vorb.entscheidung = 'normal'; neu(); };
+    if (erg.stufe === 'normal') {
+      // nichts anzunehmen: Plan bleibt, die anspruchsvollere Version ist je Übung wählbar
+    } else if (vorb.entscheidung) {
+      teile.push(h('div', { class: 'zeile' },
+        h('span', { class: 'wachs fett' }, vorb.entscheidung === 'angenommen' ? '✓ Vorschlag übernommen' : 'Du trainierst heute normal'),
+        h('button', { type: 'button', class: 'knopf schmal', onclick: () => { zuruecksetzen(); neu(); } }, 'Ändern')));
+    } else if (erg.stufe === 'ersatz') {
+      const ersetze = (art) => ersetzeDurch(art, einheit, datum, checkFelder(c, erg, true));
+      teile.push(h('div', { class: 'knopfreihe' },
+        h('button', { type: 'button', class: 'knopf haupt', onclick: () => ersetze('Spaziergang') }, symbol('gehen'), 'Spaziergang statt Kraft'),
+        h('button', { type: 'button', class: 'knopf haupt', onclick: () => ersetze('Laufband') }, symbol('laufen'), 'Laufband statt Kraft')),
+      h('button', { type: 'button', class: 'knopf breit abstand', onclick: normal }, 'Trotzdem normal trainieren'));
+    } else {
+      teile.push(h('div', { class: 'knopfreihe' },
+        h('button', { type: 'button', class: 'knopf haupt', onclick: annehmen }, symbol('haken'), 'Vorschlag übernehmen'),
+        h('button', { type: 'button', class: 'knopf', onclick: normal }, 'Trotzdem normal')));
+    }
+  }
+  return karte('Check vor dem Training', teile);
+}
+
+/** Summe 3: Krafteinheit durch Spaziergang oder Laufband ersetzt. Zählt wie verkürzt (gelb, 50 %). */
+function ersetzeDurch(art, einheit, datum, check) {
+  const t = { id: neueId(), typ: 'kraft', datum, einheit, dauer_min: null, verkuerzt: true, ersetzt: true, uebungen: [], notiz: `Durch ${art} ersetzt (Check vor dem Training)`, ...check };
+  const i = S.state.trainings.findIndex((x) => x.typ === 'kraft' && x.datum === datum && x.einheit === einheit);
+  if (i >= 0) {
+    if (!confirm(`Für ${de(datum)} gibt es schon eine Einheit „${einheit}“. Ersetzen?`)) return;
+    t.id = S.state.trainings[i].id;
+    S.state.trainings[i] = t;
+  } else S.state.trainings.push(t);
+  speichern('trainings');
+  vorb = { einheit: null, datum: null, wahl: [] };
+  meldung(`${einheit} ersetzt – trag ${art} ein, wenn du fertig bist`);
+  location.hash = `#training/cardio/${enc(art)}/${datum}`;
+}
 
 /** Übersicht einer Einheit VOR dem Start: Übungen ansehen, Version wählen, dann selbst starten. */
 function vorbereitung(einheit, datum) {
   const live = datum === heuteIso();
   const { liste, gekuerzt, maxMin } = planListe(einheit, datum);
   if (vorb.einheit !== einheit || vorb.datum !== datum || vorb.wahl.length !== liste.length) {
-    vorb = { einheit, datum, wahl: liste.map((u) => zuletztSchwer(S.state, u, datum)) };
+    vorb = { einheit, datum, wahl: liste.map((u) => zuletztSchwer(S.state, u, datum)), saetze: [], check: { regionen: [] }, entscheidung: null, wahlVorher: null };
   }
+  const erg = live ? checkStufe(vorb.check, checkGrenzen(S.state.ziele, datum)) : null;
   const starte = () => {
     if (live) tonBereit();
-    S.entwurf = neuerEntwurf(einheit, datum, vorb.wahl);
+    // Angenommen: bei "normal" gibt es nichts anzunehmen; sonst nur nach "Vorschlag übernehmen".
+    const check = erg ? checkFelder(vorb.check, erg, erg.stufe === 'normal' || vorb.entscheidung === 'angenommen') : null;
+    S.entwurf = neuerEntwurf(einheit, datum, vorb.wahl, vorb.entscheidung === 'angenommen' ? vorb.saetze : [], check);
     speichereEntwurf();
     vorb = { einheit: null, datum: null, wahl: [] };
     neu();
     window.scrollTo(0, 0);
   };
   const startKnopf = () => h('button', { type: 'button', class: 'knopf haupt breit gross', onclick: starte }, symbol('start'), live ? 'Training starten' : 'Sätze eintragen');
-  const saetze = liste.reduce((n, u) => n + (variante(u, false).saetze || 0), 0);
+  const satzZahl = (i) => (vorb.entscheidung === 'angenommen' && vorb.saetze[i]) || variante(liste[i], vorb.wahl[i]).saetze || 3;
+  const saetze = liste.reduce((n, _, i) => n + satzZahl(i), 0);
   const knoten = h('div', null,
+    live ? checkKarte(einheit, datum, liste, erg) : null,
     h('section', { class: 'karte auftakt' },
       h('div', { class: 'esymbole' }, liste.map((u, i) => kachel(variante(u, vorb.wahl[i]).name, 'klein'))),
       h('p', { class: 'auftakt-titel' }, live ? 'Noch läuft keine Zeit' : `Nachtrag für ${deMitTag(datum)}`),
@@ -270,7 +349,7 @@ function vorbereitung(einheit, datum) {
       h('div', { class: 'abstand' }, startKnopf()),
     ),
     liste.map((planUebung, i) => {
-      const u = variante(planUebung, vorb.wahl[i]);
+      const u = { ...variante(planUebung, vorb.wahl[i]), saetze: satzZahl(i) };
       const hat = !!(planUebung.schwer && planUebung.schwer.name);
       return h('section', { class: `karte ukarte k-${uebungsArt(u.name).farbe}` },
         h('div', { class: 'ukopf' },
@@ -378,7 +457,11 @@ function beende(nurBestaetigte) {
     id: neueId(), typ: 'kraft', datum: en.datum, einheit: en.einheit,
     dauer_min: live ? Math.max(1, Math.round(laufzeit(en) / 60000)) : en.dauer_min,
     verkuerzt: !!en.verkuerzt, uebungen, notiz: en.notiz || '',
+    ...(en.check || {}),
   };
+  // Angepasster Vorschlag aus dem Check: vollständig = erledigt, vorher beendet = verkürzt.
+  const offen = en.uebungen.some((u) => u.saetze.some((x) => !x.fertig));
+  if (en.check && en.check.check_angenommen && en.check.check_vorschlag !== 'normal' && nurBestaetigte && offen) t.verkuerzt = true;
   const i = S.state.trainings.findIndex((x) => x.typ === 'kraft' && x.datum === t.datum && x.einheit === t.einheit);
   if (i >= 0) {
     if (!confirm(`Für ${de(t.datum)} gibt es schon eine Einheit „${t.einheit}“. Ersetzen?`)) return;
@@ -681,6 +764,7 @@ function einheitScreen(id) {
     karte(deMitTag(t.datum),
       h('div', { class: 'ukopf' }, einheitKachel(t, 'gross'), h('h3', { class: 'wachs' }, einheitText(t))),
       t.notiz ? h('p', { class: 'klein abstand' }, t.notiz) : null,
+      checkZeile(t) ? h('p', { class: 'klein abstand' }, checkZeile(t)) : null,
       h('a', { class: 'knopf schmal breit abstand', href: `#tag/${t.datum}` }, 'Zum Tag'),
     ),
     t.typ === 'kraft'

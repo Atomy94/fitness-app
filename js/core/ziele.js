@@ -56,6 +56,11 @@ const LISTE = {
   wertung_kcal_null_abstand: ['Tageswertung', 'Kalorien: 0 % bei … kcal Abstand zum Korridor', 'kcal', 500],
   wertung_guter_tag: ['Tageswertung', 'Guter Tag ab', '%', 80],
 
+  // Check vor dem Training: Summe der drei Antworten (3–15), siehe js/core/check.js
+  check_normal_ab: ['Check vor dem Training', 'Plan normal ab Summe', '', 11],
+  check_leicht_ab: ['Check vor dem Training', 'Einfache Version ab Summe', '', 7],
+  check_reduziert_ab: ['Check vor dem Training', 'Reduzierte Einheit ab Summe (darunter Spaziergang)', '', 4],
+
   bauch_start: ['Bauchumfang', 'Startwert', 'cm', 102],
   bauch_ziel: ['Bauchumfang', 'Zielwert', 'cm', 92],
 };

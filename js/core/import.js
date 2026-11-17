@@ -7,6 +7,9 @@ import { parseZahl, fmt } from './zahl.js';
 import { ZIEL_INFO, setzeZiel } from './ziele.js';
 import { neueId } from './state.js';
 import { KATEGORIEN, neuesRezept } from './rezepte.js';
+import { REGIONEN } from './check.js';
+
+const CHECK_STUFEN = ['normal', 'leicht', 'reduziert', 'ersatz'];
 
 export const KOPF = 'FITNESS-IMPORT v1';
 
@@ -21,7 +24,11 @@ export const FELDER = {
     schlaf_h: Z(0, 24), schlaf_qualitaet: G(1, 5), stress: G(1, 10),
     kreatin: ['bool'], fussball: ['bool'], ungenau: ['bool'], notiz: ['text'],
   },
-  training: { einheit: ['text*'], dauer_min: Z(0, 600), verkuerzt: ['bool'], uebungen: ['uebungen'], notiz: ['text'] },
+  training: {
+    einheit: ['text*'], dauer_min: Z(0, 600), verkuerzt: ['bool'], uebungen: ['uebungen'], notiz: ['text'],
+    check_muskelkater: G(1, 5), check_schlaf: G(1, 5), check_energie: G(1, 5), check_regionen: ['regionen'],
+    check_vorschlag: ['checkstufe'], check_angenommen: ['bool'], ersetzt: ['bool'],
+  },
   cardio: { art: ['text*'], dauer_min: Z(0, 1440), km: Z(0, 500), notiz: ['text'] },
   messung: {
     bauch_cm: Z(30, 250), koerperfett_pct: Z(1, 80), gewicht_kg: Z(20, 400), muskelmasse_kg: Z(5, 200),
@@ -48,6 +55,8 @@ export const FELD_NAMEN = {
   schritte: 'Schritte', gewicht_kg: 'Gewicht (kg)', bauch_cm: 'Bauchumfang (cm)', schlaf_h: 'Schlaf (Std.)',
   schlaf_qualitaet: 'Schlafqualität', stress: 'Stress', kreatin: 'Kreatin', fussball: 'Fußball gespielt',
   ungenau: 'Werte ungenau', notiz: 'Notiz', einheit: 'Einheit', dauer_min: 'Dauer (Min.)', verkuerzt: 'Verkürzt',
+  check_muskelkater: 'Check: Muskelkater', check_schlaf: 'Check: Schlaf', check_energie: 'Check: Energie', check_regionen: 'Check: Muskelkater-Regionen',
+  check_vorschlag: 'Check: Vorschlag', check_angenommen: 'Check: Vorschlag angenommen', ersetzt: 'Durch Bewegung ersetzt',
   uebungen: 'Übungen', art: 'Art', km: 'Strecke (km)', koerperfett_pct: 'Körperfett (%)',
   muskelmasse_kg: 'Muskelmasse (kg)', fettmasse_kg: 'Fettmasse (kg)', fettfrei_kg: 'Fettfreie Masse (kg)',
   viszeral: 'Viszeralfett', grundumsatz_kcal: 'Grundumsatz (kcal)', liegestuetze_max: 'Liegestütze am Stück',
@@ -58,6 +67,7 @@ export const FELD_NAMEN = {
 };
 
 const TYP_NAMEN = { tag: 'Tag', training: 'Training', cardio: 'Cardio', messung: 'Messung', ziel: 'Ziel', blutwert: 'Blutwert', rezept: 'Rezept', einheit: 'Plan-Einheit', plantag: 'Wochenplan' };
+const CHECK_FELDER = ['check_muskelkater', 'check_schlaf', 'check_energie', 'check_regionen', 'check_vorschlag', 'check_angenommen', 'ersetzt'];
 const OHNE_DATUM = ['ziel', 'rezept', 'einheit', 'plantag'];
 const PLAN_ARTEN = ['kraft', 'laufband', 'bonus', 'fussball', 'frei'];
 const PLAN_ART_NAMEN = { kraft: 'Kraft (Pflicht)', laufband: 'Laufband', bonus: 'Kraft (Bonus)', fussball: 'Fußball', frei: 'kein Trainingsziel' };
@@ -81,6 +91,14 @@ function pruefeWert(spec, wert, wo, fehler) {
   }
   if (typ === 'datum') {
     if (!istDatum(wert)) { fehler.push(`${wo}: ungültiges Datum ${JSON.stringify(wert)} (erwartet JJJJ-MM-TT).`); return undefined; }
+    return wert;
+  }
+  if (typ === 'regionen') {
+    if (!Array.isArray(wert) || wert.some((r) => !REGIONEN.includes(r))) { fehler.push(`${wo}: muss eine Liste aus ${REGIONEN.map((r) => `"${r}"`).join(", ")} sein.`); return undefined; }
+    return [...new Set(wert)];
+  }
+  if (typ === 'checkstufe') {
+    if (!CHECK_STUFEN.includes(wert)) { fehler.push(`${wo}: muss einer von ${CHECK_STUFEN.join(', ')} sein.`); return undefined; }
     return wert;
   }
   if (typ === 'uebungen') return pruefeUebungen(wert, wo, fehler);
@@ -302,6 +320,7 @@ export function verarbeite(stateAlt, eintraege, optionen = {}) {
       p.titel = `Training ${e.einheit}, ${de(e.datum)}`;
       const i = state.trainings.findIndex((t) => t.typ === 'kraft' && t.datum === e.datum && t.einheit === e.einheit);
       const neu = { id: neueId(), typ: 'kraft', datum: e.datum, einheit: e.einheit, dauer_min: e.dauer_min ?? null, verkuerzt: e.verkuerzt ?? false, uebungen: e.uebungen || [], notiz: e.notiz || '' };
+      for (const f of CHECK_FELDER) if (e[f] !== undefined && e[f] !== null) neu[f] = e[f];
       const anzahl = (n) => (n === 1 ? '1 Übung' : `${n} Übungen`);
       p.felder = [{ feld: 'uebungen', alt: null, neu: anzahl(neu.uebungen.length) }];
       if (i >= 0) {

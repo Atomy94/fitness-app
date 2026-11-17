@@ -111,7 +111,9 @@ export function trainingStatus(state, datum, heuteIso) {
     else if (kraft.length) status = GELB;
     else status = fehlend;
   } else if (plan.typ === 'bonus') {
-    status = einheiten.some((t) => t.typ === 'kraft') ? GRUEN : GRAU;
+    const kraft = einheiten.filter((t) => t.typ === 'kraft');
+    // Durch Spaziergang/Laufband ersetzt (Check vor dem Training) zählt nur gelb.
+    status = kraft.some((t) => !t.ersetzt) ? GRUEN : kraft.length ? GELB : GRAU;
   } else if (plan.typ === 'laufband') {
     if (minimal) {
       status = GRAU; // Laufband ohne Wertung
