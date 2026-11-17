@@ -76,7 +76,7 @@ js/ui/                  Bildschirme, je ein Modul
   symbole.js (eigene SVG-Symbole; uebungsArt(name) ordnet Übungen/Sportarten Symbol und Farbgruppe zu; kachel())
   wertung.js (Anzeige der Wertung: große Zahl + drei Bereichsbalken)
   cloud.js (#cloud, Claude-Verbindung)  vorschau.js (Import-Vorschau, von Einfüge-Import und Dropbox-Eingang benutzt)
-tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), wertung (Tages- und Wochenwertung, Wochendiagramm), streak (Streak mit Joker), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
+tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), wertung (Tages- und Wochenwertung, Wochendiagramm), streak (Streak mit Joker), sonntag (Sonntags-Hinweis), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
 tools/                  server.mjs (Vorschau), make-icons.mjs
 ```
 
@@ -119,6 +119,7 @@ Status: `gruen` geschafft · `gelb` knapp · `rot` verfehlt · `grau` trifft nic
 - **Regel 15 Uhr:** ab 15:00 und Schritte unter `schritte_pflicht_grenze` → „Laufband heute Abend: Pflicht“.
 - **Gewicht:** Hauptlinie ist der 7-Tage-Schnitt (`gleitSchnitt`). **Bauchumfang** ist die Hauptkennzahl, mit linearem Zielpfad.
 - Schlaf und Stress werden erfasst und angezeigt, nicht bewertet.
+- **Sonntags-Hinweis (seit 1.15):** Sonntags zeigt „Heute“ „Bauchumfang messen und Fotos machen“ (Link zur Tagesansicht mit dem Feld Bauchumfang), bis für diesen Sonntag ein gültiger Bauchumfang eingetragen ist (`sonntagsMessungOffen()` in `js/core/bewertung.js`, Messung mit beliebiger Quelle).
 
 ## Tages- und Wochenwertung in Prozent (seit 1.9, Umsetzung: `js/core/wertung.js`)
 

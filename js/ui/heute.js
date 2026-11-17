@@ -11,7 +11,7 @@ import { planAuswahl } from '../core/ziele.js';
 import { abendVorschlag } from '../core/vorschlag.js';
 import { tagWertung, streak } from '../core/wertung.js';
 import { wertungBlock } from './wertung.js';
-import { kcalStatus, eiweissStatus } from '../core/bewertung.js';
+import { kcalStatus, eiweissStatus, sonntagsMessungOffen } from '../core/bewertung.js';
 import { deMitTag, stundeBerlin, diffTage } from '../core/datum.js';
 
 /** Liest eine gewählte health-data.json ein und ersetzt den Stand. */
@@ -147,6 +147,9 @@ function kopfTeil(d) {
   if (bereit && stundeBerlin() >= 15 && (t.schritte ?? 0) < b.ziele.schritte.pflichtGrenze && !hatLaufband) {
     teile.push(h('div', { class: 'hinweis warn' }, 'Laufband heute Abend: Pflicht',
       h('small', null, t.schritte === undefined ? `Noch keine Schritte eingetragen (Grenze: ${fmt(b.ziele.schritte.pflichtGrenze)} bis 15 Uhr).` : `Erst ${fmt(t.schritte)} Schritte (Grenze: ${fmt(b.ziele.schritte.pflichtGrenze)} bis 15 Uhr).`)));
+  }
+  if (bereit && sonntagsMessungOffen(st, d)) {
+    teile.push(h('a', { class: 'hinweis info', href: `#tag/${d}` }, 'Bauchumfang messen und Fotos machen', h('small', null, 'Sonntag ist Messtag. Tippe hier und trag den Bauchumfang ein – dann verschwindet der Hinweis.')));
   }
   if (S.modus === 'echt' && S.eingang.length) {
     teile.push(h('a', { class: 'hinweis info', href: '#cloud' }, `Claude hat ${S.eingang.length} ${S.eingang.length === 1 ? 'Datei' : 'Dateien'} abgelegt`, h('small', null, 'Tippe hier, um die Vorschau zu sehen und zu übernehmen.')));

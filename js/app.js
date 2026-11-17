@@ -1,7 +1,7 @@
 // Einstieg: lädt die Daten, verbindet Navigation und Bildschirme, registriert den Service Worker.
 // Adressen: #heute, #kalender, #training/…, #fortschritt, #mehr/…, #tag/JJJJ-MM-TT
 
-import { laden, verbinde, raeumeAuf } from './store.js';
+import { S, laden, verbinde, raeumeAuf } from './store.js';
 import { h, toast } from './ui/dom.js';
 import { heuteScreen } from './ui/heute.js';
 import { kalenderScreen } from './ui/kalender.js';
@@ -59,7 +59,7 @@ zurueck.addEventListener('click', () => { if (zurueckZiel) location.hash = zurue
 window.addEventListener('hashchange', zeichne);
 // Kommt die App aus dem Hintergrund zurück, kann ein neuer Tag begonnen haben.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && !document.querySelector('[data-laeuft]')) zeichne();
+  if (document.visibilityState === 'visible' && S.state && !document.querySelector('[data-laeuft]')) zeichne();
 });
 
 verbinde({ zeichne, meldung: toast });

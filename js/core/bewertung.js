@@ -2,7 +2,7 @@
 // Reine Funktionen ohne Bildschirm-Code – vollständig durch tests/ abgedeckt.
 
 import { tagesZiele, planTag, minimalAktiv, zielWert } from './ziele.js';
-import { plusTage, wochenTage, diffTage } from './datum.js';
+import { plusTage, wochenTage, diffTage, wochentag } from './datum.js';
 import { trainingsAm } from './state.js';
 
 export const GRUEN = 'gruen';
@@ -215,4 +215,13 @@ export function zielpfad(datum, { von, bis, start, ziel }) {
   if (gesamt <= 0) return ziel;
   const anteil = Math.min(1, Math.max(0, diffTage(von, datum) / gesamt));
   return start + (ziel - start) * anteil;
+}
+
+/**
+ * Sonntags-Erinnerung: Am Sonntag gilt „Bauchumfang messen und Fotos machen“,
+ * bis für genau diesen Sonntag ein (gültiger) Bauchumfang eingetragen ist.
+ */
+export function sonntagsMessungOffen(state, datum) {
+  if (wochentag(datum) !== 7) return false;
+  return !(state.messungen || []).some((m) => m.datum === datum && typeof m.bauch_cm === 'number' && !m.ungueltig);
 }
