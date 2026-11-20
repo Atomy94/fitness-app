@@ -1,5 +1,5 @@
 // Einstieg: lädt die Daten, verbindet Navigation und Bildschirme, registriert den Service Worker.
-// Adressen: #heute, #kalender, #training/…, #fortschritt, #mehr/…, #tag/JJJJ-MM-TT
+// Adressen: #heute, #kalender, #training/…, #schlaf, #fortschritt, #mehr/…, #tag/JJJJ-MM-TT
 
 import { S, laden, verbinde, raeumeAuf } from './store.js';
 import { h, toast } from './ui/dom.js';
@@ -8,6 +8,7 @@ import { kalenderScreen } from './ui/kalender.js';
 import { tagScreen } from './ui/tag.js';
 import { trainingScreen } from './ui/training.js';
 import { fortschrittScreen } from './ui/fortschritt.js';
+import { schlafScreen } from './ui/schlaf.js';
 import { mehrScreen } from './ui/mehr.js';
 import { rezepteScreen } from './ui/rezepte.js';
 import { cloudScreen } from './ui/cloud.js';
@@ -19,6 +20,7 @@ const SCREENS = {
   kalender: kalenderScreen,
   tag: tagScreen,
   training: trainingScreen,
+  schlaf: schlafScreen,
   fortschritt: fortschrittScreen,
   mehr: mehrScreen,
   rezepte: rezepteScreen,

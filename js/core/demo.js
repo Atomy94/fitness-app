@@ -42,6 +42,19 @@ export function demoState(heuteIso) {
       stress: 3 + Math.floor(r() * 5),
       kreatin: r() > 0.12,
     };
+    // Schlafphasen, Zeiten, Ruhepuls und HRV (erfunden, ohne weitere Zufallszahlen, damit die übrigen Testdaten gleich bleiben)
+    const schlafMin = t.schlaf_h * 60;
+    t.schlaf_tief_min = Math.round(schlafMin * (0.14 + (i % 3) * 0.02));
+    t.schlaf_rem_min = Math.round(schlafMin * 0.22);
+    t.schlaf_leicht_min = Math.round(schlafMin) - t.schlaf_tief_min - t.schlaf_rem_min;
+    t.schlaf_wach_min = 10 + (i % 4) * 8;
+    const zuBett = 23 * 60 + (i % 5) * 10;
+    const ende = (zuBett + Math.round(schlafMin) + t.schlaf_wach_min) % (24 * 60);
+    const uhr = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    t.einschlafen = uhr(zuBett);
+    t.aufwachen = uhr(ende);
+    t.ruhepuls = 57 + (i % 5);
+    t.hrv_ms = 36 + (i % 7) * 3;
     if (!istHeute) {
       // absichtlich gemischt: ein zu niedriger Tag, ein zu hoher, sonst im Korridor
       t.kcal = i === 3 ? 1820 : i === 9 ? 2720 : Math.round(zw(fussball ? 2380 : 2040, fussball ? 2700 : 2420));

@@ -11,6 +11,7 @@ import { planAuswahl } from '../core/ziele.js';
 import { abendVorschlag } from '../core/vorschlag.js';
 import { tagWertung, streak } from '../core/wertung.js';
 import { wertungBlock } from './wertung.js';
+import { schlafKarte } from './schlaf.js';
 import { kcalStatus, eiweissStatus, sonntagsMessungOffen } from '../core/bewertung.js';
 import { deMitTag, stundeBerlin, diffTage } from '../core/datum.js';
 
@@ -189,6 +190,7 @@ function kopfTeil(d) {
   const vorschlag = bereit ? vorschlagKarte(b) : null;
   if (vorschlag) teile.push(vorschlag);
   teile.push(planKarte(b, d));
+  teile.push(schlafKarte(d));
   return teile;
 }
 

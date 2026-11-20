@@ -22,6 +22,8 @@ export const FELDER = {
     ballaststoffe_g: Z(0, 500), ges_fett_g: Z(0, 500), zucker_g: Z(0, 1000), salz_g: Z(0, 100),
     schritte: G(0, 200000), gewicht_kg: Z(20, 400), bauch_cm: Z(30, 250),
     schlaf_h: Z(0, 24), schlaf_qualitaet: G(1, 5), stress: G(1, 10),
+    schlaf_tief_min: G(0, 900), schlaf_rem_min: G(0, 900), schlaf_leicht_min: G(0, 900), schlaf_wach_min: G(0, 900),
+    einschlafen: ['uhrzeit'], aufwachen: ['uhrzeit'], ruhepuls: G(25, 150), hrv_ms: Z(1, 300),
     kreatin: ['bool'], fussball: ['bool'], ungenau: ['bool'], notiz: ['text'],
   },
   training: {
@@ -53,7 +55,9 @@ export const FELD_NAMEN = {
   kcal: 'Kalorien', eiweiss_g: 'Eiweiß (g)', kh_g: 'Kohlenhydrate (g)', fett_g: 'Fett (g)',
   ballaststoffe_g: 'Ballaststoffe (g)', ges_fett_g: 'Gesättigte Fette (g)', zucker_g: 'Zucker (g)', salz_g: 'Salz (g)',
   schritte: 'Schritte', gewicht_kg: 'Gewicht (kg)', bauch_cm: 'Bauchumfang (cm)', schlaf_h: 'Schlaf (Std.)',
-  schlaf_qualitaet: 'Schlafqualität', stress: 'Stress', kreatin: 'Kreatin', fussball: 'Fußball gespielt',
+  schlaf_qualitaet: 'Schlafqualität', stress: 'Stress',
+  schlaf_tief_min: 'Tiefschlaf (Min.)', schlaf_rem_min: 'REM-Schlaf (Min.)', schlaf_leicht_min: 'Leichtschlaf (Min.)', schlaf_wach_min: 'Wach (Min.)',
+  einschlafen: 'Eingeschlafen', aufwachen: 'Aufgewacht', ruhepuls: 'Ruhepuls', hrv_ms: 'HRV (ms)', kreatin: 'Kreatin', fussball: 'Fußball gespielt',
   ungenau: 'Werte ungenau', notiz: 'Notiz', einheit: 'Einheit', dauer_min: 'Dauer (Min.)', verkuerzt: 'Verkürzt',
   check_muskelkater: 'Check: Muskelkater', check_schlaf: 'Check: Schlaf', check_energie: 'Check: Energie', check_regionen: 'Check: Muskelkater-Regionen',
   check_vorschlag: 'Check: Vorschlag', check_angenommen: 'Check: Vorschlag angenommen', ersetzt: 'Durch Bewegung ersetzt',
@@ -67,6 +71,7 @@ export const FELD_NAMEN = {
 };
 
 const TYP_NAMEN = { tag: 'Tag', training: 'Training', cardio: 'Cardio', messung: 'Messung', ziel: 'Ziel', blutwert: 'Blutwert', rezept: 'Rezept', einheit: 'Plan-Einheit', plantag: 'Wochenplan' };
+const MESSWERTE = new Set(['schlaf_h', 'schlaf_tief_min', 'schlaf_rem_min', 'schlaf_leicht_min', 'schlaf_wach_min', 'einschlafen', 'aufwachen', 'ruhepuls', 'hrv_ms']);
 const CHECK_FELDER = ['check_muskelkater', 'check_schlaf', 'check_energie', 'check_regionen', 'check_vorschlag', 'check_angenommen', 'ersetzt'];
 const OHNE_DATUM = ['ziel', 'rezept', 'einheit', 'plantag'];
 const PLAN_ARTEN = ['kraft', 'laufband', 'bonus', 'fussball', 'frei'];
@@ -92,6 +97,11 @@ function pruefeWert(spec, wert, wo, fehler) {
   if (typ === 'datum') {
     if (!istDatum(wert)) { fehler.push(`${wo}: ungültiges Datum ${JSON.stringify(wert)} (erwartet JJJJ-MM-TT).`); return undefined; }
     return wert;
+  }
+  if (typ === 'uhrzeit') {
+    const m = typeof wert === 'string' ? wert.trim().match(/^(\d{1,2})[:.](\d{2})$/) : null;
+    if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) { fehler.push(`${wo}: muss eine Uhrzeit wie "23:15" sein (ist: ${JSON.stringify(wert)}).`); return undefined; }
+    return `${m[1].padStart(2, '0')}:${m[2]}`;
   }
   if (typ === 'regionen') {
     if (!Array.isArray(wert) || wert.some((r) => !REGIONEN.includes(r))) { fehler.push(`${wo}: muss eine Liste aus ${REGIONEN.map((r) => `"${r}"`).join(", ")} sein.`); return undefined; }
@@ -248,7 +258,11 @@ export function leseImport(text) {
       const spec = felder[feld];
       if (!spec) { unbekannt.push(feld); continue; }
       if (wert === null) continue; // null = nicht ändern
-      const v = pruefeWert(spec, wert, `${wo}, Feld "${feld}"`, fehler);
+      // Messwerte aus dem Kurzbefehl: leer oder 0 heißt „keine Messung“ (z. B. Band noch nicht synchronisiert)
+      if (MESSWERTE.has(feld) && (wert === '' || wert === 0 || wert === '0')) continue;
+      // Der Kurzbefehl schreibt Dezimalpunkte: "7.125" ist hier 7,125 und nicht siebentausend
+      const wertLesbar = MESSWERTE.has(feld) && /^(zahl|ganz)/.test(spec[0]) && typeof wert === 'string' && /^\d+\.\d+$/.test(wert.trim()) ? Number(wert.trim()) : wert;
+      const v = pruefeWert(spec, wertLesbar, `${wo}, Feld "${feld}"`, fehler);
       // Körpergewicht wird auf eine Nachkommastelle gerundet (Health liefert oft viele Stellen).
       if (v !== undefined) e[feld] = feld === 'gewicht_kg' ? runde(v, 1) : v;
     }

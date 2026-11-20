@@ -5,6 +5,7 @@ import { h, karte, zahlFeld, textFeld, wahl, punkt, marke, STATUS_TEXT } from '.
 import { tagBewertung } from '../core/bewertung.js';
 import { tagWertung, streak } from '../core/wertung.js';
 import { wertungBlock } from './wertung.js';
+import { nacht, dauerText } from '../core/schlaf.js';
 import { tagVon, neueId } from '../core/state.js';
 import { fmt } from '../core/zahl.js';
 import { deMitTag, plusTage, WT_LANG, wochentag, istDatum } from '../core/datum.js';
@@ -62,10 +63,9 @@ export function tagFormular(datum, { voll = false, onChange = () => {} } = {}) {
     h('div', { class: 'raster2' },
       z('Gewicht', 'gewicht_kg', 'kg', { min: 20, max: 400, stellen: 1 }),
       z('Schritte', 'schritte', null, { ganz: true, min: 0, max: 200000 }),
-      z('Schlaf', 'schlaf_h', 'Std.', { min: 0, max: 24 }),
+      voll ? z('Schlaf (Korrektur)', 'schlaf_h', 'Std.', { min: 0, max: 24 }) : null,
       voll ? zahlFeld({ label: 'Bauchumfang', wert: bauchAm(datum) ? bauchAm(datum).bauch_cm : null, einheit: 'cm', min: 30, max: 250, onChange: (w) => { setzeBauch(datum, w); onChange(); } }) : null,
     ),
-    wahl({ label: 'Schlafqualität (1 = schlecht, 5 = sehr gut)', werte: [1, 2, 3, 4, 5], wert: tag.schlaf_qualitaet, onChange: feld('schlaf_qualitaet') }),
     wahl({ label: 'Stress (1 = entspannt, 10 = sehr hoch)', werte: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], wert: tag.stress, onChange: feld('stress') }),
     wahl({ label: 'Kreatin genommen', werte: [true, false], texte: ['Ja', 'Nein'], wert: tag.kreatin, onChange: feld('kreatin') }),
     istFussballtag ? wahl({ label: 'Fußball hat stattgefunden', werte: [true, false], texte: ['Ja', 'Nein, ausgefallen'], wert: tag.fussball, onChange: feld('fussball') }) : null,
@@ -82,6 +82,15 @@ const wertZeile = (name, wert, status, zusatz) => h('li', null,
 export function einheitText(t) {
   if (t.typ === 'kraft') return `${t.einheit}${t.ersetzt ? ' (durch Bewegung ersetzt)' : t.verkuerzt ? ' (verkürzt)' : ''}${t.dauer_min ? ` · ${t.dauer_min} Min.` : ''}`;
   return `${t.art}${t.dauer_min ? ` · ${t.dauer_min} Min.` : ''}${t.km ? ` · ${fmt(t.km, 2)} km` : ''}`;
+}
+
+/** Schlaf der Nacht zu diesem Tag in einer Zeile. */
+function schlafText(datum) {
+  const n = nacht(S.state, datum);
+  if (!n) return '–';
+  const teile = [n.stunden !== null ? dauerText(n.stunden) : null, n.einschlafen || n.aufwachen ? `${n.einschlafen || '?'}–${n.aufwachen || '?'}` : null,
+    n.ruhepuls !== null ? `Puls ${fmt(n.ruhepuls)}` : null, n.hrv !== null ? `HRV ${fmt(n.hrv)}` : null, n.qualitaet ? `Qualität ${n.qualitaet}/5` : null];
+  return teile.filter(Boolean).join(' · ');
 }
 
 /** Die drei Bereiche eines Tages mit allen Einzelwerten. */
@@ -124,7 +133,7 @@ export function bereicheDetail(datum) {
   const sonstiges = h('section', { class: 'karte' }, h('h2', null, 'Ohne Wertung'),
     h('ul', { class: 'liste' },
       wertZeile('Gewicht', g(t.gewicht_kg, 'kg', 1)),
-      wertZeile('Schlaf', t.schlaf_h === undefined ? '–' : `${fmt(t.schlaf_h, 1)} Std.${t.schlaf_qualitaet ? ` · Qualität ${t.schlaf_qualitaet}/5` : ''}`),
+      wertZeile('Schlaf (Nacht zu diesem Tag)', schlafText(datum)),
       wertZeile('Stress', t.stress === undefined ? '–' : `${t.stress}/10`),
       t.notiz ? h('li', null, h('span', { class: 'wachs' }, t.notiz)) : null,
     ),

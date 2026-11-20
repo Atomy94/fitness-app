@@ -15,7 +15,7 @@ import { de, montag, plusTage, kw, WT_LANG } from './datum.js';
 
 export const ORDNER = { eingang: '/eingang', erledigt: '/erledigt', sicherung: '/sicherung' };
 export const DATEI = { stand: '/stand.md', rezepte: '/rezepte.md', liesmich: '/LIESMICH-fuer-Claude.md', sicherung: '/sicherung/fitness-sicherung.json' };
-export const LIESMICH_VERSION = 5;
+export const LIESMICH_VERSION = 6;
 
 const ohneId = ({ id, ...rest }) => rest;
 const nachDatum = (a, b) => (a.datum < b.datum ? -1 : a.datum > b.datum ? 1 : 0);
@@ -89,6 +89,7 @@ export function standDatei(state, heuteIso, zeitText, version) {
     `- Schritte: ${z(t.schritte)} (Ziel ${fmt(b.ziele.schritte.ziel)}) → ${b.schritte}`,
     `- Training: ${b.plan ? b.plan.text || b.plan.typ : 'kein Trainingsziel'} → ${b.training}${b.einheiten.length ? ` (${b.einheiten.map((e) => (e.typ === 'kraft' ? e.einheit : `${e.art} ${e.dauer_min || ''} Min.`)).join(', ')})` : ''}`,
     `- Gewicht: ${z(t.gewicht_kg, ' kg')} · Minimalversion: ${b.minimal ? 'aktiv' : 'nicht aktiv'}`,
+    `- Schlaf letzte Nacht: ${z(t.schlaf_h, ' Std.')}${t.ruhepuls ? ` · Ruhepuls ${t.ruhepuls}` : ''}${t.hrv_ms ? ` · HRV ${fmt(t.hrv_ms)} ms` : ''} · Stress: ${t.stress ? `${t.stress}/10` : '–'}`,
     '',
     `## Laufende Woche (KW ${kw(heuteIso)})`,
     '',
@@ -189,7 +190,7 @@ Der Nutzer sieht beim nächsten Öffnen der App eine Vorschau (alter Wert → ne
 
 ### Felder je Typ
 
-- **tag**: kcal, eiweiss_g, kh_g, fett_g, ballaststoffe_g, ges_fett_g, zucker_g, salz_g, schritte (ganze Zahl), gewicht_kg, bauch_cm, schlaf_h, schlaf_qualitaet (1–5), stress (1–10), kreatin (true/false), fussball (true/false: hat am Fußballtag Fußball stattgefunden), ungenau (true/false), notiz
+- **tag**: kcal, eiweiss_g, kh_g, fett_g, ballaststoffe_g, ges_fett_g, zucker_g, salz_g, schritte (ganze Zahl), gewicht_kg, bauch_cm, schlaf_h (Gesamtschlaf der Nacht, die am Morgen dieses Tages endet), schlaf_qualitaet (1–5, alt), stress (1–10), ab 1.17 optional: schlaf_tief_min, schlaf_rem_min, schlaf_leicht_min, schlaf_wach_min (Minuten je Schlafphase), einschlafen, aufwachen ("HH:MM"), ruhepuls (Schläge/Min.), hrv_ms, kreatin (true/false), fussball (true/false: hat am Fußballtag Fußball stattgefunden), ungenau (true/false), notiz
 - **training** (Krafteinheit): einheit (z. B. „Kraft A“, „Kraft B“, „Kraft C“), dauer_min, verkuerzt (true/false), uebungen [ { name, saetze [ { wdh, kg, sek } ], notiz } ], notiz. Optional (ab 1.16, Check vor dem Training, je 1–5, 5 = gut): check_muskelkater, check_schlaf, check_energie, check_regionen (Liste aus „Oberkörper“, „Beine“, „Rumpf“), check_vorschlag (normal, leicht, reduziert, ersatz), check_angenommen (true/false), ersetzt (true = Kraft durch Spaziergang/Laufband ersetzt, zählt wie verkürzt). Gleiches Datum und gleiche Einheit **ersetzt** die vorhandene Einheit (der Nutzer wird gefragt).
 - **cardio**: art („Laufband“, „Hallenfußball“, „Spaziergang“ werden ausgewertet), dauer_min, km, notiz
 - **messung**: bauch_cm, koerperfett_pct, gewicht_kg, muskelmasse_kg, fettmasse_kg, fettfrei_kg, viszeral, grundumsatz_kcal, liegestuetze_max, kniebeugen_max, quelle („Maßband“, „Tanita“, „Krafttest“), ungueltig, grund

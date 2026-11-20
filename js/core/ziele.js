@@ -56,6 +56,9 @@ const LISTE = {
   wertung_kcal_null_abstand: ['Tageswertung', 'Kalorien: 0 % bei … kcal Abstand zum Korridor', 'kcal', 500],
   wertung_guter_tag: ['Tageswertung', 'Guter Tag ab', '%', 80],
 
+  // Schlaf (nur Anzeige, keine Wertung): Bezugslinie im Diagramm und Vorbelegung im Check vor dem Training
+  schlaf_bedarf_h: ['Schlaf', 'Schlafbedarf pro Nacht', 'Std.', 7.5],
+
   // Check vor dem Training: Summe der drei Antworten (3–15), siehe js/core/check.js
   check_normal_ab: ['Check vor dem Training', 'Plan normal ab Summe', '', 11],
   check_leicht_ab: ['Check vor dem Training', 'Einfache Version ab Summe', '', 7],

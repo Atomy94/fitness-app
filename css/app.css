@@ -356,3 +356,15 @@ pre.block { white-space: pre-wrap; word-break: break-word; font: 12px/1.4 ui-mon
 .rekordzeile { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: #b98200; margin-top: 2px; }
 @media (prefers-color-scheme: dark) { .rekordzeile { color: #f2c230; } }
 .rekordzeile .sym { width: 15px; height: 15px; }
+
+/* Schlaf (seit 1.17): eigene Farben, Grün/Gelb/Rot bleiben dem Status vorbehalten */
+:root { --p-tief: #3730a3; --p-rem: #8b5cf6; --p-leicht: #93c5fd; --p-wach: #c3c8d0; }
+@media (prefers-color-scheme: dark) { :root { --p-tief: #6366f1; --p-rem: #c084fc; --p-leicht: #7dd3fc; --p-wach: #4b5260; } }
+.k-schlaf { --k: #4f46e5; }
+.schlaf-zahl { font-size: 26px; font-weight: 700; }
+.phasen-wrap { margin-top: 12px; }
+.phasen { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--feld); }
+.phasen span { display: block; height: 100%; }
+.phasen-legende { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 13px; color: var(--text2); }
+.phasen-legende i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.p-tief { background: var(--p-tief); } .p-rem { background: var(--p-rem); } .p-leicht { background: var(--p-leicht); } .p-wach { background: var(--p-wach); }

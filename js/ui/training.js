@@ -3,6 +3,7 @@
 
 import { S, heuteIso, neu, speichern, speichereEntwurf, beiVerlassen, meldung } from '../store.js';
 import { h, karte, zahlFeld, textFeld, datumFeld, diagramm, wahl as wahlFeld, STATUS_TEXT } from './dom.js';
+import { nacht, schlafBedarf, schlafNote, dauerText } from '../core/schlaf.js';
 import { FRAGEN, REGIONEN, checkGrenzen, checkStufe, fragtRegionen, checkText, wendeVorschlagAn, checkFelder, checkZeile } from '../core/check.js';
 import { symbol, kachel, uebungsArt } from './symbole.js';
 import { tagBewertung } from '../core/bewertung.js';
@@ -262,6 +263,7 @@ function checkKarte(einheit, datum, liste, erg) {
   for (const f of FRAGEN) {
     teile.push(wahlFeld({ label: `${f.titel} (1 = ${f.eins}, 5 = ${f.fuenf})`, werte: [1, 2, 3, 4, 5], wert: c[f.feld] ?? null,
       onChange: (v) => { zuruecksetzen(); if (v === null) delete c[f.feld]; else c[f.feld] = v; neu(); } }));
+    if (f.feld === 'schlaf' && vorb.schlafGemessen) teile.push(h('p', { class: 'klein', style: 'margin-top:-6px' }, `Vorbelegt aus der Messung: ${dauerText(vorb.schlafGemessen)} geschlafen. Ändere den Wert, wenn er sich anders anfühlt.`));
   }
   if (fragtRegionen(c)) {
     const knoepfe = REGIONEN.map((r) => h('button', { type: 'button', class: c.regionen.includes(r) ? 'an' : '', onclick: () => {
@@ -322,7 +324,10 @@ function vorbereitung(einheit, datum) {
   const live = datum === heuteIso();
   const { liste, gekuerzt, maxMin } = planListe(einheit, datum);
   if (vorb.einheit !== einheit || vorb.datum !== datum || vorb.wahl.length !== liste.length) {
-    vorb = { einheit, datum, wahl: liste.map((u) => zuletztSchwer(S.state, u, datum)), saetze: [], check: { regionen: [] }, entscheidung: null, wahlVorher: null };
+    // Schlaf letzte Nacht aus der Messung vorbelegen (nur bestätigen oder ändern)
+    const n = live ? nacht(S.state, datum) : null;
+    const note = n ? schlafNote(n.stunden, schlafBedarf(S.state, datum)) : null;
+    vorb = { einheit, datum, wahl: liste.map((u) => zuletztSchwer(S.state, u, datum)), saetze: [], check: { regionen: [], ...(note ? { schlaf: note } : {}) }, schlafGemessen: note ? n.stunden : null, entscheidung: null, wahlVorher: null };
   }
   const erg = live ? checkStufe(vorb.check, checkGrenzen(S.state.ziele, datum)) : null;
   const starte = () => {

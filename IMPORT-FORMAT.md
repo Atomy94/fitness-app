@@ -50,13 +50,19 @@ Der Block darf in Code-Zäunen (```) stehen und Leerzeilen davor haben.
 | `schritte` | ganze Zahl | 0–200.000 | |
 | `gewicht_kg` | Zahl | 20–400 | |
 | `bauch_cm` | Zahl | 30–250 | wird als Messung (Quelle „Maßband“) gespeichert |
-| `schlaf_h` | Zahl | 0–24 | |
-| `schlaf_qualitaet` | ganze Zahl | 1–5 | |
+| `schlaf_h` | Zahl | 0–24 | Gesamtschlaf der Nacht, die am Morgen dieses Tages endet |
+| `schlaf_qualitaet` | ganze Zahl | 1–5 | früher von Hand eingetragen; in der App seit 1.17 nicht mehr abgefragt, alte Werte werden angezeigt |
+| `schlaf_tief_min`, `schlaf_rem_min`, `schlaf_leicht_min`, `schlaf_wach_min` | ganze Zahl | 0–900 | Minuten je Schlafphase (ab 1.17) |
+| `einschlafen`, `aufwachen` | Text `"HH:MM"` | | Uhrzeit, auch `"6.50"` wird als 06:50 gelesen (ab 1.17) |
+| `ruhepuls` | ganze Zahl | 25–150 | Schläge pro Minute (ab 1.17) |
+| `hrv_ms` | Zahl | 1–300 | Herzfrequenzvariabilität in ms (ab 1.17) |
 | `stress` | ganze Zahl | 1–10 | |
 | `kreatin` | true/false | | |
 | `fussball` | true/false | | Hat am Fußballtag Fußball stattgefunden? Bestimmt das Kalorienziel. |
 | `ungenau` | true/false | | Markierung „Werte ungenau“ |
 | `notiz` | Text | | |
+
+**Messwerte aus dem Kurzbefehl (ab 1.17):** Bei `schlaf_h`, den Schlafphasen, `einschlafen`, `aufwachen`, `ruhepuls` und `hrv_ms` heißt ein leerer Text `""` oder `0` „keine Messung“ (Feld wird nicht geändert, der Block bleibt gültig). Zahlen dürfen in Anführungszeichen stehen; ein Punkt gilt dort immer als Dezimaltrenner (`"7.125"` = 7,125). Anleitung für den Kurzbefehl: **KURZBEFEHL-SCHLAF.md**.
 
 Sonderfall: Ist ein Tag als „Werte ungenau“ markiert und der Import liefert einen **anderen** `eiweiss_g`-Wert (ohne `ungenau` anzugeben), entfernt die App die Markierung.
 
@@ -130,6 +136,7 @@ Tage **vor** `gueltig_ab` werden weiter mit dem alten Wert bewertet.
 | `wertung_kcal_pct` / `wertung_eiweiss_pct` / `wertung_training_pct` / `wertung_schritte_pct` | Gewichte der Tageswertung in % (ab 1.9) | 30 / 20 / 25 / 25 |
 | `wertung_kcal_null_abstand` | Kalorien: 0 % bei diesem Abstand zum Korridor (kcal) | 500 |
 | `wertung_guter_tag` | Guter Tag ab … % | 80 |
+| `schlaf_bedarf_h` | Schlafbedarf pro Nacht (Std.): Bezugslinie im Schlafdiagramm und Vorbelegung im Check vor dem Training, keine Wertung (ab 1.17) | 7,5 |
 | `check_normal_ab` / `check_leicht_ab` / `check_reduziert_ab` | Check vor dem Training: Plan normal / einfache Version / reduzierte Einheit ab Summe (3–15); darunter Spaziergang statt Kraft (ab 1.16) | 11 / 7 / 4 |
 | `bauch_start` / `bauch_ziel` | Bauchumfang Start / Ziel (cm) | 102 / 92 |
 

@@ -12,7 +12,7 @@ Entscheidungen selbst und begründe sie kurz. Frag nur, wenn eine Entscheidung d
 - **Ausnahme auf ausdrücklichen Wunsch des Nutzers (seit 1.2):** optionale Verbindung zur eigenen Dropbox als Schnittstelle zu Claude. Dann liegen Stand, Rezepte und Sicherung zusätzlich im App-Ordner seiner Dropbox. Ohne Verbindung bleibt alles lokal.
 - Essen wird NICHT in der App geloggt. Tageswerte kommen aus Yazio über den Claude-Import.
 - Rezepte (seit 1.1) dienen nur zum Nachschlagen von Mengen und Nährwerten; sie fließen nicht in die Tageswerte ein.
-- Noch nicht enthalten: Rezeptrechner mit Topfgewicht, Übungsbilder, automatische Schritte-Übertragung.
+- Noch nicht enthalten: Rezeptrechner mit Topfgewicht, Übungsbilder. Schlafphasen und HRV aus dem Xiaomi Band: App bereit, Kurzbefehl wird ergänzt, sobald das Band da ist.
 
 ## Feste Regeln
 
@@ -46,7 +46,7 @@ manifest.webmanifest    PWA-Angaben
 sw.js                   Service Worker (Offline-Cache, Version)
 css/app.css             gesamtes Aussehen, hell/dunkel über prefers-color-scheme
 icons/                  App-Symbole (erzeugt von tools/make-icons.mjs)
-js/app.js               Einstieg, Navigation (#heute, #kalender, #tag/DATUM, #training/…, #fortschritt, #mehr/…)
+js/app.js               Einstieg, Navigation (#heute, #kalender, #tag/DATUM, #training/…, #schlaf, #fortschritt, #mehr/…)
 js/store.js             Datenstand im Speicher, Speichern, Wechsel echte Daten/Testdaten
 js/db.js                IndexedDB-Hülle
 js/cloud.js             Dropbox-Abgleich: hochladen, Eingang abholen, automatisch beim Öffnen/nach Änderungen
@@ -67,17 +67,18 @@ js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   wertung.js            Tages- und Wochenwertung in Prozent (Gewichte und Grenzen aus den Zielen)
   vorschlag.js          Abend-Vorschläge „Für heute noch“ (rein rechnerisch), Startwerte der Snack-Liste
   check.js              Check vor dem Training: Stufe aus drei Antworten, Vorschlag auf die Übungsliste anwenden
+  schlaf.js             Schlaf je Nacht, Phasenanteile, Wochenschnitt, Verlauf, Vorbelegung des Checks (schlafNote)
   signal.js             Zeitplan der Töne am Pausenende
   wach.js               Bildschirm anlassen während des Trainings (Screen Wake Lock, still ohne Unterstützung)
   kraft.js              Verlauf je Übung (Gewicht × Wdh.), Kennzahlen, Vergleich zur Vorgänger-Einheit
   demo.js               Testdaten (3 Wochen, erfunden)
 js/ui/                  Bildschirme, je ein Modul
   dom.js                Bausteine: h(), Felder, Punkte, Ring, Diagramm (eigenes SVG)
-  heute.js  kalender.js  tag.js  training.js  fortschritt.js  mehr.js  rezepte.js (#rezepte, erreichbar über „Mehr“)
+  heute.js  kalender.js  tag.js  training.js  schlaf.js  fortschritt.js  mehr.js  rezepte.js (#rezepte, erreichbar über „Mehr“)
   symbole.js (eigene SVG-Symbole; uebungsArt(name) ordnet Übungen/Sportarten Symbol und Farbgruppe zu; kachel())
   wertung.js (Anzeige der Wertung: große Zahl + drei Bereichsbalken)
   cloud.js (#cloud, Claude-Verbindung)  vorschau.js (Import-Vorschau, von Einfüge-Import und Dropbox-Eingang benutzt)
-tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), wertung (Tages- und Wochenwertung, Wochendiagramm), streak (Streak mit Joker), sonntag (Sonntags-Hinweis), check (Check vor dem Training), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
+tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), wertung (Tages- und Wochenwertung, Wochendiagramm), streak (Streak mit Joker), sonntag (Sonntags-Hinweis), schlaf (Schlaf, Import der Messwerte), gewicht (Rundung), check (Check vor dem Training), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
 tools/                  server.mjs (Vorschau), make-icons.mjs
 ```
 
@@ -89,7 +90,7 @@ IndexedDB-Datenbank `fitness-app` (echte Daten) bzw. `fitness-app-demo` (Testdat
 
 | Sammlung | Inhalt |
 |---|---|
-| `tage` | Objekt je Datum: `kcal, eiweiss_g, kh_g, fett_g, ballaststoffe_g, ges_fett_g, zucker_g, salz_g, schritte, gewicht_kg, schlaf_h, schlaf_qualitaet, stress, kreatin, fussball, notiz, ungenau` |
+| `tage` | Objekt je Datum: `kcal, eiweiss_g, kh_g, fett_g, ballaststoffe_g, ges_fett_g, zucker_g, salz_g, schritte, gewicht_kg, schlaf_h, schlaf_qualitaet (alt), schlaf_tief_min, schlaf_rem_min, schlaf_leicht_min, schlaf_wach_min, einschlafen, aufwachen, ruhepuls, hrv_ms, stress, kreatin, fussball, notiz, ungenau` (Schlaf = Nacht, die am Morgen des Tages endet) |
 | `trainings` | Liste. Kraft: `{ id, typ:'kraft', datum, einheit, dauer_min, verkuerzt, ersetzt, check_muskelkater, check_schlaf, check_energie, check_regionen, check_vorschlag, check_angenommen, uebungen:[{ name, saetze:[{ wdh, kg, sek }], notiz }], notiz }` · Cardio: `{ id, typ:'cardio', datum, art, dauer_min, km, notiz }` |
 | `messungen` | Liste, ein Eintrag je Datum+Quelle: `bauch_cm, koerperfett_pct, gewicht_kg, muskelmasse_kg, …, liegestuetze_max, kniebeugen_max, quelle, ungueltig, grund` |
 | `blutwerte` | Liste: `{ id, datum, name, wert, wert_text, einheit, norm_min, norm_max }` |
@@ -119,7 +120,7 @@ Status: `gruen` geschafft · `gelb` knapp · `rot` verfehlt · `grau` trifft nic
 - **Minimalversion** (Zeiträume in den Einstellungen): Schritte 6.000, Kalorien 2.100–2.500 grün, Kraft an Pflichttagen 20 Min./erste 3 Übungen, Laufband ohne Wertung. „Gewicht und Bauchumfang halten“ gilt als Erfolg und wird so angezeigt.
 - **Regel 15 Uhr:** ab 15:00 und Schritte unter `schritte_pflicht_grenze` → „Laufband heute Abend: Pflicht“.
 - **Gewicht** wird immer mit höchstens einer Nachkommastelle gespeichert (seit 1.16.1: Import, Eingabefeld und beim Laden vorhandener Daten gerundet). Hauptlinie ist der 7-Tage-Schnitt (`gleitSchnitt`). **Bauchumfang** ist die Hauptkennzahl, mit linearem Zielpfad.
-- Schlaf und Stress werden erfasst und angezeigt, nicht bewertet.
+- Schlaf, Ruhepuls, HRV und Stress werden angezeigt, nicht bewertet (siehe „Schlaf“).
 - **Sonntags-Hinweis (seit 1.15):** Sonntags zeigt „Heute“ „Bauchumfang messen und Fotos machen“ (Link zur Tagesansicht mit dem Feld Bauchumfang), bis für diesen Sonntag ein gültiger Bauchumfang eingetragen ist (`sonntagsMessungOffen()` in `js/core/bewertung.js`, Messung mit beliebiger Quelle).
 
 ## Tages- und Wochenwertung in Prozent (seit 1.9, Umsetzung: `js/core/wertung.js`)
@@ -150,6 +151,15 @@ Zusätzlich zu den Farbstatus der drei Bereiche. Pro Tag 0–100 %, nie mehr.
 - **Laufende Woche nur aus den bisherigen Tagen:** vergangene Tage zählen immer; der heutige Tag zählt je Bereich erst, wenn ein Ergebnis vorliegt (Ernährung/Schritte eingetragen, Training nicht mehr offen). Vorher wurde durch 7 geteilt, wodurch die Linien am Wochenanfang fälschlich abfielen.
 - Die laufende Woche ist vorläufig: Punkt hohl, Strecke dorthin gestrichelt (`vorlaeufig` am Punkt, siehe `diagramm()` in `js/ui/dom.js`).
 - X-Achse mit Kalenderwochen (`xMarken`). Die Bereichslinien unterscheiden sich zusätzlich zur Farbe durch die Punktform (Kreis, Quadrat, Raute).
+
+## Schlaf (seit 1.17, eigener Bereich #schlaf in der unteren Leiste)
+
+- **Quelle:** Xiaomi Band → Mi Fitness → Apple Health → Kurzbefehl „Fitness-Import“ → Dropbox (Auto-Import). Anleitung für den Kurzbefehl: **KURZBEFEHL-SCHLAF.md**. Die Nacht, die am Morgen des Tages D endet, steht bei D.
+- **Logik:** `js/core/schlaf.js` (`nacht()`, `phasenAnteile()`, `schlafSchnitt()`, `schlafWoche()`, `schlafVerlauf()` mit 7-Tage-Schnitt, `schlafNote()`). Ohne `schlaf_h`, aber mit Phasen zählt die Summe der Schlafphasen ohne Wachzeit.
+- **Bildschirm** `js/ui/schlaf.js`: letzte Nacht (Dauer, Zeiten, Ruhepuls, HRV, Phasenbalken), Diese Woche (Ø mit Vergleich zur Vorwoche), Schlafdauer 30 Tage mit Bezugslinie `schlaf_bedarf_h` (Ziel, Startwert 7,5), Ruhepuls, HRV und Stress als Verläufe (nur wenn Daten da sind), Liste der Nächte. Phasenfarben eigene Variablen (`--p-tief` …), nicht Grün/Gelb/Rot.
+- **Heute:** Karte „Schlaf letzte Nacht“ (`schlafKarte()`) statt der früheren Selbsteingabe. Die Schnelleingabe fragt Schlaf und Schlafqualität nicht mehr ab; in der Tagesansicht bleibt nur „Schlaf (Korrektur)“. Stress bleibt Selbsteingabe (Apple Health kennt keinen Stresswert).
+- **Check vor dem Training:** Die Frage „Schlaf letzte Nacht“ ist aus der Messung vorbelegt (`schlafNote()`: ab Bedarf 5, je fehlender Stunde eine Stufe weniger, min. 1), mit Hinweis auf die gemessene Dauer.
+- **Import:** leere Texte oder 0 bei den Messwerten = keine Messung (der Auto-Import scheitert nicht, wenn das Band noch nicht synchronisiert hat); Punkt = Dezimaltrenner.
 
 ## Abend-Vorschläge „Für heute noch“ (seit 1.8)
 
