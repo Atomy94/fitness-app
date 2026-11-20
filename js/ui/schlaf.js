@@ -1,8 +1,9 @@
 // Bildschirm "Schlaf": letzte Nacht mit Phasen, Wochenschnitt, Verläufe (Dauer, Ruhepuls, HRV, Stress), Liste der Nächte.
 // Außerdem die kompakte Schlaf-Karte für "Heute". Schlaf wird nur angezeigt, nicht bewertet.
 
-import { S, heuteIso } from '../store.js';
-import { h, karte, diagramm } from './dom.js';
+import { S, heuteIso, speichern, neu } from '../store.js';
+import { h, karte, diagramm, zahlFeld } from './dom.js';
+import { tagVon } from '../core/state.js';
 import { symbol } from './symbole.js';
 import { fmt } from '../core/zahl.js';
 import { plusTage, montag, deMitTag, de } from '../core/datum.js';
@@ -26,6 +27,24 @@ function phasenBalken(n) {
       anteile.map((p) => h('span', { class: p.klasse, style: `width:${p.pct.toFixed(1)}%` }))),
     h('div', { class: 'phasen-legende' }, anteile.map((p) => h('span', null, h('i', { class: p.klasse }), `${p.name} ${minText(p.min)}`))),
   );
+}
+
+/** Selbst eingetragen, solange keine Messung mit Uhrzeiten oder Phasen da ist (bis das Band da ist). */
+const ohneMessung = (n) => !n || (!n.einschlafen && !n.aufwachen && !n.phasen.length);
+
+function schlafEingabe(datum, n, nachher) {
+  return h('div', { class: 'abstand' },
+    zahlFeld({
+      label: n ? 'Geschlafen (ca.)' : 'Wie lange hast du ca. geschlafen?', einheit: 'Std.', wert: n ? n.stunden : null,
+      platzhalter: 'z. B. 7,5', min: 0, max: 24, stellen: 2,
+      onChange: (w) => {
+        const tag = tagVon(S.state, datum, true);
+        if (w === null) delete tag.schlaf_h; else tag.schlaf_h = w;
+        speichern('tage');
+        nachher();
+      },
+    }),
+    h('p', { class: 'klein' }, 'Bis das Band misst, reicht ein Schätzwert. Eine Messung aus dem Kurzbefehl ersetzt ihn später.'));
 }
 
 const zeiten = (n) => (n.einschlafen || n.aufwachen ? `${n.einschlafen || '?'} – ${n.aufwachen || '?'} Uhr` : '');
@@ -55,16 +74,13 @@ function dauerDiagramm(bis, anzahl, hoehe) {
 }
 
 /** Kompakte Karte auf "Heute": letzte Nacht und die letzten 7 Nächte. */
-export function schlafKarte(d) {
+export function schlafKarte(d, nachher = neu) {
   const n = nacht(S.state, d);
   const link = h('a', { class: 'knopf schmal breit abstand', href: '#schlaf' }, 'Alles zum Schlaf ›');
-  if (!n) {
-    return karte('Schlaf letzte Nacht',
-      h('p', { class: 'klein' }, 'Noch keine Werte für letzte Nacht. Sie kommen über den Kurzbefehl aus Apple Health (später vom Xiaomi Band über Mi Fitness).'),
-      link);
-  }
+  const eingabe = ohneMessung(n) ? schlafEingabe(d, n, nachher) : null;
+  if (!n) return karte('Schlaf letzte Nacht', eingabe, link);
   const hatWoche = schlafVerlauf(S.state, d, 7).punkte.filter((p) => p.stunden !== null).length > 1;
-  return karte('Schlaf letzte Nacht', nachtKopf(n), hatWoche ? h('div', { class: 'abstand' }, dauerDiagramm(d, 7, 130)) : null, link);
+  return karte('Schlaf letzte Nacht', nachtKopf(n), hatWoche ? h('div', { class: 'abstand' }, dauerDiagramm(d, 7, 130)) : null, eingabe, link);
 }
 
 function wocheKarte(d) {
@@ -119,10 +135,13 @@ export function schlafScreen() {
   const d = heuteIso();
   const n = letzteMitWerten(d);
   const hatVerlauf = schlafVerlauf(S.state, d, 30).punkte.some((p) => p.stunden !== null);
+  const heuteN = nacht(S.state, d);
   const knoten = h('div', null,
+    heuteN && ohneMessung(heuteN) ? null : (ohneMessung(heuteN) ? karte('Letzte Nacht eintragen', schlafEingabe(d, null, neu)) : null),
     n ? karte(n.datum === d ? 'Letzte Nacht' : `Zuletzt: Nacht zum ${de(n.datum)}`, nachtKopf(n),
-      n.phasen.length ? null : h('p', { class: 'klein abstand' }, 'Schlafphasen erscheinen, sobald das Band sie über Mi Fitness an Apple Health gibt.'))
-      : karte('Letzte Nacht', h('p', { class: 'leer' }, 'Noch keine Schlafwerte')),
+      n.phasen.length ? null : h('p', { class: 'klein abstand' }, n.einschlafen || n.aufwachen ? 'Schlafphasen erscheinen, sobald das Band sie über Mi Fitness an Apple Health gibt.' : 'Selbst eingetragen. Phasen und Uhrzeiten kommen mit dem Band.'),
+      n.datum === d && ohneMessung(n) ? schlafEingabe(d, n, neu) : null)
+      : null,
     wocheKarte(d),
     hatVerlauf ? karte('Schlafdauer · 30 Tage', dauerDiagramm(d, 30, 190), h('p', { class: 'klein abstand' }, 'Einzelne Nächte schwanken. Aussagekräftig ist die Linie des Schnitts.')) : null,
     erholungKarten(d),
