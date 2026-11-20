@@ -111,12 +111,12 @@ export function dropbox(f, holeToken) {
   const fehlt = (e) => e instanceof DropboxFehler && e.status === 409 && /not_found/.test(e.code);
 
   return {
-    /** Schreibt eine Textdatei (ersetzt eine vorhandene). */
-    async hochladen(pfad, text) {
+    /** Schreibt eine Datei (ersetzt eine vorhandene). inhalt: Text oder Bytes (Uint8Array/ArrayBuffer). */
+    async hochladen(pfad, inhalt) {
       await sende(f, `${INHALT}/files/upload`, {
         method: 'POST',
         headers: await kopf({ 'Content-Type': 'application/octet-stream', 'Dropbox-API-Arg': kopfArg({ path: pfad, mode: 'overwrite', mute: true }) }),
-        body: new TextEncoder().encode(text),
+        body: typeof inhalt === 'string' ? new TextEncoder().encode(inhalt) : inhalt,
       });
     },
     /** Dateien eines Ordners: [{ name, pfad, groesse, geaendert }]. Fehlt der Ordner, wird er angelegt. */
@@ -129,11 +129,26 @@ export function dropbox(f, holeToken) {
         await this.ordner(pfad);
         return [];
       }
-      return (j.entries || []).filter((x) => x['.tag'] === 'file').map((x) => ({ name: x.name, pfad: x.path_lower || x.path_display, groesse: x.size || 0, geaendert: x.server_modified || '' }));
+      const eintraege = [...(j.entries || [])];
+      // Mehr als 200 Dateien kommen in weiteren Teilen.
+      for (let runde = 0; j.has_more && j.cursor && runde < 50; runde++) {
+        j = await rpc('/files/list_folder/continue', { cursor: j.cursor });
+        eintraege.push(...(j.entries || []));
+      }
+      return eintraege.filter((x) => x['.tag'] === 'file').map((x) => ({ name: x.name, pfad: x.path_lower || x.path_display, groesse: x.size || 0, geaendert: x.server_modified || '' }));
     },
     async herunterladen(pfad) {
       const antwort = await sende(f, `${INHALT}/files/download`, { method: 'POST', headers: await kopf({ 'Dropbox-API-Arg': kopfArg({ path: pfad }) }) });
       return antwort.text();
+    },
+    /** Lädt eine Datei als Bytes (ArrayBuffer), z. B. ein Foto. */
+    async herunterladenDaten(pfad) {
+      const antwort = await sende(f, `${INHALT}/files/download`, { method: 'POST', headers: await kopf({ 'Dropbox-API-Arg': kopfArg({ path: pfad }) }) });
+      return antwort.arrayBuffer();
+    },
+    /** Löscht eine Datei; fehlt sie schon, ist das kein Fehler. */
+    async loesche(pfad) {
+      try { await rpc('/files/delete_v2', { path: pfad }); } catch (e) { if (!fehlt(e)) throw e; }
     },
     async verschiebe(von, nach) {
       await rpc('/files/move_v2', { from_path: von, to_path: nach, autorename: true });

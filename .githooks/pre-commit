@@ -1,7 +1,7 @@
 #!/bin/sh
 # Verhindert, dass persönliche Daten in einen Commit gelangen.
 # Aktiviert durch: git config core.hooksPath .githooks
-verboten=$(git diff --cached --name-only | grep -i -E '(health-data|sicherung|backup|^privat/|claude-code-prompts)' )
+verboten=$(git diff --cached --name-only | grep -i -E '(health-data|sicherung|backup|^privat/|claude-code-prompts|(^|/)fotos/|\.(jpe?g|heic)$)' )
 if [ -n "$verboten" ]; then
   echo "ABBRUCH: Diese Dateien enthalten vermutlich persönliche Daten und dürfen nicht ins Repository:"
   echo "$verboten"

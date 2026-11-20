@@ -15,7 +15,7 @@ import { de, montag, plusTage, kw, WT_LANG } from './datum.js';
 
 export const ORDNER = { eingang: '/eingang', erledigt: '/erledigt', sicherung: '/sicherung' };
 export const DATEI = { stand: '/stand.md', rezepte: '/rezepte.md', liesmich: '/LIESMICH-fuer-Claude.md', sicherung: '/sicherung/fitness-sicherung.json' };
-export const LIESMICH_VERSION = 6;
+export const LIESMICH_VERSION = 7;
 
 const ohneId = ({ id, ...rest }) => rest;
 const nachDatum = (a, b) => (a.datum < b.datum ? -1 : a.datum > b.datum ? 1 : 0);
@@ -150,6 +150,7 @@ Die App läuft auf seinem iPhone und gleicht diesen Ordner ab, sobald sie geöff
 | \`sicherung/fitness-sicherung.json\` | Vollständige Sicherung aller Daten | App (überschreibt) |
 | \`eingang/\` | Neue Einträge von dir | **Du** (neue Datei anlegen) |
 | \`erledigt/\` | Von der App verarbeitete Einträge | App (verschiebt) |
+| \`fotos/\` | Private Fortschrittsfotos (JPG). **Nur öffnen, wenn der Nutzer ausdrücklich darum bittet; nie verändern, verschieben oder löschen.** | App |
 
 ## Daten lesen
 

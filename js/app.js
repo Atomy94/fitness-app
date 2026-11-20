@@ -9,6 +9,7 @@ import { tagScreen } from './ui/tag.js';
 import { trainingScreen } from './ui/training.js';
 import { fortschrittScreen } from './ui/fortschritt.js';
 import { schlafScreen } from './ui/schlaf.js';
+import { fotosScreen } from './ui/fotos.js';
 import { mehrScreen } from './ui/mehr.js';
 import { rezepteScreen } from './ui/rezepte.js';
 import { cloudScreen } from './ui/cloud.js';
@@ -25,8 +26,9 @@ const SCREENS = {
   mehr: mehrScreen,
   rezepte: rezepteScreen,
   cloud: cloudScreen,
+  fotos: fotosScreen,
 };
-const NAV = { tag: 'kalender', rezepte: 'mehr', cloud: 'mehr' };
+const NAV = { tag: 'kalender', rezepte: 'mehr', cloud: 'mehr', fotos: 'fortschritt' };
 
 const inhalt = document.getElementById('inhalt');
 const titel = document.getElementById('titel');

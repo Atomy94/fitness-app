@@ -29,6 +29,8 @@ export function beiVerlassen(fn) { aufraeumListe.push(fn); }
 export function raeumeAuf() { aufraeumListe.forEach((fn) => fn()); aufraeumListe = []; }
 
 const dbName = () => (S.modus === 'demo' ? DB_DEMO : DB_ECHT);
+/** Name der Datenbank des aktuellen Modus (für die Fotos, die nicht im Datenstand liegen). */
+export const aktuelleDb = () => dbName();
 
 function modusLesen() {
   try { return localStorage.getItem('fitness-modus') === 'demo' ? 'demo' : 'echt'; } catch { return 'echt'; }
@@ -55,6 +57,8 @@ export async function laden() {
 // Wer informiert werden will, wenn sich Daten ändern (der Dropbox-Abgleich).
 let aenderungsHoerer = () => {};
 export function beiAenderung(fn) { aenderungsHoerer = fn; }
+/** Meldet eine Änderung außerhalb des Datenstands (z. B. neues Foto), damit der Abgleich startet. */
+export const meldeAenderung = () => aenderungsHoerer();
 
 /** Speichert die genannten Sammlungen (ohne Angabe: alle). */
 export function speichern(...namen) {

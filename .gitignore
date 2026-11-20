@@ -8,6 +8,14 @@ claude-code-prompts-fitness-app.md
 *backup*.json
 *.bak
 privat/
+# Fortschrittsfotos (seit 1.18)
+fotos/
+*.jpg
+*.jpeg
+*.JPG
+*.JPEG
+*.heic
+*.HEIC
 
 # Werkzeuge
 node_modules/

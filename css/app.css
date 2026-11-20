@@ -368,3 +368,32 @@ pre.block { white-space: pre-wrap; word-break: break-word; font: 12px/1.4 ui-mon
 .phasen-legende { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 13px; color: var(--text2); }
 .phasen-legende i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 .p-tief { background: var(--p-tief); } .p-rem { background: var(--p-rem); } .p-leicht { background: var(--p-leicht); } .p-wach { background: var(--p-wach); }
+
+/* Fortschrittsfotos (seit 1.18) */
+.unsichtbar { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.foto-knoepfe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.foto-knopf { position: relative; flex-direction: column; gap: 2px; min-height: 64px; padding: 6px; }
+.foto-knopf small { font-weight: 400; font-size: 12px; color: var(--text2); }
+.foto-knopf.erledigt { border-color: var(--gruen); }
+.foto-neben { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.foto-neben figure { margin: 0; }
+.foto-neben img, .foto-blende img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 10px; background: var(--feld); }
+.foto-unter { margin-top: 4px; }
+.foto-blende { position: relative; }
+.foto-blende .foto-oben { position: absolute; inset: 0; height: 100%; }
+.foto-regler { margin: 8px 0; }
+.foto-regler input { flex: 1; min-width: 0; accent-color: var(--akzent); }
+.foto-termin { padding: 10px 0; border-top: 1px solid var(--rand); }
+.foto-termin:first-of-type { border-top: 0; padding-top: 0; }
+.foto-reihe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.foto-mini { display: flex; flex-direction: column; gap: 3px; padding: 0; border: 0; background: none; color: var(--text2); font: inherit; font-size: 12px; text-align: center; cursor: pointer; }
+.foto-mini img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px; background: var(--feld); }
+.foto-mini.leer-foto { cursor: default; }
+.foto-platz { aspect-ratio: 3 / 4; border: 1px dashed var(--rand); border-radius: 8px; }
+.foto-gross { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .92); color: #fff; display: flex; flex-direction: column; gap: 10px;
+  padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 16px); }
+.foto-gross-kopf { display: flex; align-items: center; gap: 10px; }
+.foto-gross-kopf .klein { color: #c9ced6; }
+.foto-gross img { flex: 1; min-height: 0; width: 100%; object-fit: contain; }
+.foto-gross .knopf { color: var(--text); }
+.foto-gross .knopf.gefahr { color: var(--rot); }

@@ -24,6 +24,7 @@ function menue() {
   return { titel: 'Mehr', knoten: h('div', null,
     karte(null, h('div', { class: 'liste' },
       punkt('#rezepte', 'Rezepte', 'Frühstück, Mittagessen, Abendessen, Snacks mit Mengen und Nährwerten'),
+      punkt('#fotos', 'Fortschrittsfotos', 'Fotos aufnehmen, Vorher/Nachher vergleichen'),
       punkt('checkin', 'Wochen-Check-in', 'Wochenwerte ansehen und für Claude kopieren'),
       punkt('#cloud', 'Claude-Verbindung (Dropbox)', istVerbunden() ? 'Verbunden – Claude kann lesen und Einträge ablegen' : 'Einrichten, damit Claude selbst lesen und ablegen kann'),
       punkt('import', 'Von Claude importieren', 'Datenblock „FITNESS-IMPORT v1“ einfügen'),

@@ -148,3 +148,21 @@ test('Anleitung für Claude: nennt alle Typen, Felder und Zielschlüssel; das Be
   assert.equal(r.eintraege.length, 9);
   for (const feld of ['saetze', 'wdh', 'pause_sek', 'sek']) assert.ok(text.includes(feld), `Planfeld ${feld} fehlt`);
 });
+
+test('Dropbox: Fotos als Bytes hochladen und laden, lange Ordner in Teilen, Löschen', async () => {
+  const m = falschesFetch([
+    {}, // upload
+    { json: { entries: [{ '.tag': 'file', name: 'a.jpg', path_lower: '/fotos/a.jpg' }], has_more: true, cursor: 'C1' } },
+    { json: { entries: [{ '.tag': 'file', name: 'b.jpg', path_lower: '/fotos/b.jpg' }], has_more: false } },
+    { status: 409, json: { error_summary: 'path_lookup/not_found/..' } }, // löschen: schon weg
+  ]);
+  const d = dropbox(m.f, token);
+  const bytes = new Uint8Array([255, 216, 255]);
+  await d.hochladen('/fotos/a.jpg', bytes);
+  assert.equal(m.anfragen[0].body, bytes);
+  assert.deepEqual((await d.liste('/fotos')).map((x) => x.name), ['a.jpg', 'b.jpg']);
+  assert.equal(m.anfragen[2].url, 'https://api.dropboxapi.com/2/files/list_folder/continue');
+  assert.deepEqual(JSON.parse(m.anfragen[2].body), { cursor: 'C1' });
+  await d.loesche('/fotos/c.jpg'); // kein Fehler
+  assert.equal(m.anfragen[3].url, 'https://api.dropboxapi.com/2/files/delete_v2');
+});

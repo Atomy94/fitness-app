@@ -162,7 +162,13 @@ function messListe() {
   ));
 }
 
+function fotoKarte() {
+  return karte('Fortschrittsfotos',
+    h('p', { class: 'klein' }, 'Sieh, wie du dich optisch veränderst: Fotos von vorne, von der Seite und von hinten, Vorher/Nachher nebeneinander oder überblendet.'),
+    h('a', { class: 'knopf breit abstand', href: '#fotos' }, 'Fotos ansehen und aufnehmen ›'));
+}
+
 export function fortschrittScreen() {
   const d = heuteIso();
-  return { titel: 'Fortschritt', knoten: h('div', null, minimalKarte(d), bauchKarte(d), gewichtKarte(d), eingabeKarte(d), steigerungKarte(), tanitaKarte(), kraftKarte(), messListe()) };
+  return { titel: 'Fortschritt', knoten: h('div', null, minimalKarte(d), bauchKarte(d), fotoKarte(), gewichtKarte(d), eingabeKarte(d), steigerungKarte(), tanitaKarte(), kraftKarte(), messListe()) };
 }

@@ -150,7 +150,8 @@ function kopfTeil(d) {
       h('small', null, t.schritte === undefined ? `Noch keine Schritte eingetragen (Grenze: ${fmt(b.ziele.schritte.pflichtGrenze)} bis 15 Uhr).` : `Erst ${fmt(t.schritte)} Schritte (Grenze: ${fmt(b.ziele.schritte.pflichtGrenze)} bis 15 Uhr).`)));
   }
   if (bereit && sonntagsMessungOffen(st, d)) {
-    teile.push(h('a', { class: 'hinweis info', href: `#tag/${d}` }, 'Bauchumfang messen und Fotos machen', h('small', null, 'Sonntag ist Messtag. Tippe hier und trag den Bauchumfang ein – dann verschwindet der Hinweis.')));
+    teile.push(h('div', { class: 'hinweis info' }, 'Bauchumfang messen und Fotos machen', h('small', null, 'Sonntag ist Messtag. Sobald der Bauchumfang eingetragen ist, verschwindet der Hinweis.'),
+      h('div', { class: 'raster2 abstand' }, h('a', { class: 'knopf schmal', href: `#tag/${d}` }, 'Bauchumfang'), h('a', { class: 'knopf schmal', href: '#fotos' }, 'Fotos'))));
   }
   if (S.modus === 'echt' && S.eingang.length) {
     teile.push(h('a', { class: 'hinweis info', href: '#cloud' }, `Claude hat ${S.eingang.length} ${S.eingang.length === 1 ? 'Datei' : 'Dateien'} abgelegt`, h('small', null, 'Tippe hier, um die Vorschau zu sehen und zu übernehmen.')));

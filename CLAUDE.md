@@ -12,6 +12,7 @@ Entscheidungen selbst und begründe sie kurz. Frag nur, wenn eine Entscheidung d
 - **Ausnahme auf ausdrücklichen Wunsch des Nutzers (seit 1.2):** optionale Verbindung zur eigenen Dropbox als Schnittstelle zu Claude. Dann liegen Stand, Rezepte und Sicherung zusätzlich im App-Ordner seiner Dropbox. Ohne Verbindung bleibt alles lokal.
 - Essen wird NICHT in der App geloggt. Tageswerte kommen aus Yazio über den Claude-Import.
 - Rezepte (seit 1.1) dienen nur zum Nachschlagen von Mengen und Nährwerten; sie fließen nicht in die Tageswerte ein.
+- Fortschrittsfotos (seit 1.18) liegen auf dem Gerät und, wenn verbunden, im Dropbox-Ordner `fotos/`, nie im Repository.
 - Noch nicht enthalten: Rezeptrechner mit Topfgewicht, Übungsbilder. Schlafphasen und HRV aus dem Xiaomi Band: App bereit, Kurzbefehl wird ergänzt, sobald das Band da ist.
 
 ## Feste Regeln
@@ -46,10 +47,11 @@ manifest.webmanifest    PWA-Angaben
 sw.js                   Service Worker (Offline-Cache, Version)
 css/app.css             gesamtes Aussehen, hell/dunkel über prefers-color-scheme
 icons/                  App-Symbole (erzeugt von tools/make-icons.mjs)
-js/app.js               Einstieg, Navigation (#heute, #kalender, #tag/DATUM, #training/…, #schlaf, #fortschritt, #mehr/…)
+js/app.js               Einstieg, Navigation (#heute, #kalender, #tag/DATUM, #training/…, #schlaf, #fortschritt, #fotos, #mehr/…)
 js/store.js             Datenstand im Speicher, Speichern, Wechsel echte Daten/Testdaten
 js/db.js                IndexedDB-Hülle
-js/cloud.js             Dropbox-Abgleich: hochladen, Eingang abholen, automatisch beim Öffnen/nach Änderungen
+js/cloud.js             Dropbox-Abgleich: hochladen, Eingang abholen, Fotos abgleichen, automatisch beim Öffnen/nach Änderungen
+js/fotos.js             Fortschrittsfotos: verkleinern, in IndexedDB speichern, löschen, Abgleich mit Dropbox fotos/
 js/version.js           Versionsnummer
 js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   datum.js              Datum, Wochen, Berlin-Zeit
@@ -67,6 +69,7 @@ js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   wertung.js            Tages- und Wochenwertung in Prozent (Gewichte und Grenzen aus den Zielen)
   vorschlag.js          Abend-Vorschläge „Für heute noch“ (rein rechnerisch), Startwerte der Snack-Liste
   check.js              Check vor dem Training: Stufe aus drei Antworten, Vorschlag auf die Übungsliste anwenden
+  fotos.js              Fotos: Dateinamen, Termine, Vorher/Nachher-Auswahl, Messwerte zum Termin, Abgleichplan
   schlaf.js             Schlaf je Nacht, Phasenanteile, Wochenschnitt, Verlauf, Vorbelegung des Checks (schlafNote)
   signal.js             Zeitplan der Töne am Pausenende
   wach.js               Bildschirm anlassen während des Trainings (Screen Wake Lock, still ohne Unterstützung)
@@ -74,11 +77,11 @@ js/core/                REINE LOGIK ohne Bildschirm-Code (in Node testbar)
   demo.js               Testdaten (3 Wochen, erfunden)
 js/ui/                  Bildschirme, je ein Modul
   dom.js                Bausteine: h(), Felder, Punkte, Ring, Diagramm (eigenes SVG)
-  heute.js  kalender.js  tag.js  training.js  schlaf.js  fortschritt.js  mehr.js  rezepte.js (#rezepte, erreichbar über „Mehr“)
+  heute.js  kalender.js  tag.js  training.js  schlaf.js  fortschritt.js  mehr.js  rezepte.js (#rezepte, erreichbar über „Mehr“)  fotos.js (#fotos, über „Fortschritt“ und „Mehr“)
   symbole.js (eigene SVG-Symbole; uebungsArt(name) ordnet Übungen/Sportarten Symbol und Farbgruppe zu; kachel())
   wertung.js (Anzeige der Wertung: große Zahl + drei Bereichsbalken)
   cloud.js (#cloud, Claude-Verbindung)  vorschau.js (Import-Vorschau, von Einfüge-Import und Dropbox-Eingang benutzt)
-tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), wertung (Tages- und Wochenwertung, Wochendiagramm), streak (Streak mit Joker), sonntag (Sonntags-Hinweis), schlaf (Schlaf, Import der Messwerte), gewicht (Rundung), check (Check vor dem Training), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
+tests/                  node:test – bewertung, import, rezepte-kraft, cloud (mit nachgebautem fetch), eingang (mit nachgebauter Dropbox), varianten, samstag (Auswahl am Plantag, Übungsnamen, plantag-Import), vorschlag (Abend-Vorschläge), wertung (Tages- und Wochenwertung, Wochendiagramm), streak (Streak mit Joker), sonntag (Sonntags-Hinweis), schlaf (Schlaf, Import der Messwerte), fotos (Dateinamen, Termine, Abgleichplan), gewicht (Rundung), check (Check vor dem Training), weitere (Datum, Zahlen, Erstbefüllung, Check-in, Offline-Liste)
 tools/                  server.mjs (Vorschau), make-icons.mjs
 ```
 
@@ -98,6 +101,7 @@ IndexedDB-Datenbank `fitness-app` (echte Daten) bzw. `fitness-app-demo` (Testdat
 | `einstellungen` | `start, profil, phasen, minimal.zeitraeume[{von,bis}], minimalKraft, plan{maxMinuten, wochenplan{1..7: { typ, einheit, minuten, text, wahl:[{ text, einheit }] }}, wochenplanAlt[{bis, wochenplan}], einheiten{Name:[{ name, saetze, wdh, kg, kg_text, sek, pause_sek, notiz, schwer:{ name, wdh, kg, sek, saetze, pause_sek, notiz } }]}, progression}, zielpfad{von,bis}, pauseSek, snacks:[{ id, name, kcal, eiweiss_g, fett_g, hinweis }], vorschlagAbStunde, autoImportOhneVorschau, supplements, letzteSicherung, eingerichtet, archiv` |
 | `checkins` | Objekt je Montag: `{ verdauung, besonderheiten }` |
 | `rezepte` | Liste: `{ id, name, kategorie (Frühstück/Mittagessen/Abendessen/Snacks), bezug:'portion'|'100g', portion, zutaten:[{ name, menge }], kcal, eiweiss_g, kh_g, fett_g, ges_fett_g, zucker_g, ballaststoffe_g, salz_g, notiz }`. Fehlt die Sammlung (Stand aus 1.0), baut `ergaenze()` sie aus `einstellungen.archiv`. |
+| `fotos` | Metadaten der Fortschrittsfotos `[{ id, datum, ansicht (vorne/seite/hinten), hochgeladen, erstellt }]`; Bilder einzeln unter `foto:<id>` als `{ typ, daten, mini }` (Bytes), dazu `fotos-geloescht` (Dateinamen, die beim Abgleich in der Dropbox gelöscht werden). **Nicht** im Datenstand, nicht in Sicherung, Export oder stand.md. |
 | `entwurf` | laufendes Training (nicht Teil der Sicherung): Übungen mit Sätzen, `startMs`, `angehaltenSeit`, `angehaltenMs` (angehaltene Zeit zählt nicht zur Dauer), `pauseBis` (Satzpause) |
 
 Sicherungsdatei: `{ "format": "fitness-sicherung", "version": 1, "erstellt", "daten": { alle Sammlungen } }`, Name `fitness-sicherung-JJJJ-MM-TT.json`.
@@ -121,7 +125,7 @@ Status: `gruen` geschafft · `gelb` knapp · `rot` verfehlt · `grau` trifft nic
 - **Regel 15 Uhr:** ab 15:00 und Schritte unter `schritte_pflicht_grenze` → „Laufband heute Abend: Pflicht“.
 - **Gewicht** wird immer mit höchstens einer Nachkommastelle gespeichert (seit 1.16.1: Import, Eingabefeld und beim Laden vorhandener Daten gerundet). Hauptlinie ist der 7-Tage-Schnitt (`gleitSchnitt`). **Bauchumfang** ist die Hauptkennzahl, mit linearem Zielpfad.
 - Schlaf, Ruhepuls, HRV und Stress werden angezeigt, nicht bewertet (siehe „Schlaf“).
-- **Sonntags-Hinweis (seit 1.15):** Sonntags zeigt „Heute“ „Bauchumfang messen und Fotos machen“ (Link zur Tagesansicht mit dem Feld Bauchumfang), bis für diesen Sonntag ein gültiger Bauchumfang eingetragen ist (`sonntagsMessungOffen()` in `js/core/bewertung.js`, Messung mit beliebiger Quelle).
+- **Sonntags-Hinweis (seit 1.15):** Sonntags zeigt „Heute“ „Bauchumfang messen und Fotos machen“ (Knöpfe zur Tagesansicht mit dem Feld Bauchumfang und, seit 1.18, zu den Fotos), bis für diesen Sonntag ein gültiger Bauchumfang eingetragen ist (`sonntagsMessungOffen()` in `js/core/bewertung.js`, Messung mit beliebiger Quelle).
 
 ## Tages- und Wochenwertung in Prozent (seit 1.9, Umsetzung: `js/core/wertung.js`)
 
@@ -162,6 +166,15 @@ Zusätzlich zu den Farbstatus der drei Bereiche. Pro Tag 0–100 %, nie mehr.
 - **Check vor dem Training:** Die Frage „Schlaf letzte Nacht“ ist aus der Messung vorbelegt (`schlafNote()`: ab Bedarf 5, je fehlender Stunde eine Stufe weniger, min. 1), mit Hinweis auf die gemessene Dauer.
 - **Import:** leere Texte oder 0 bei den Messwerten = keine Messung (der Auto-Import scheitert nicht, wenn das Band noch nicht synchronisiert hat); Punkt = Dezimaltrenner.
 
+## Fortschrittsfotos (seit 1.18, `#fotos`)
+
+- **Aufnehmen:** Datum (Startwert heute) und je Ansicht (Vorne, Seite, Hinten) ein Knopf mit `<input type="file" accept="image/*">`: iOS bietet Kamera oder Mediathek an. `js/fotos.js` verkleinert auf längste Seite 1280 px (JPG 0,82) plus Vorschaubild 400 px. Mehrere Fotos derselben Ansicht am selben Tag sind erlaubt; gezeigt wird das zuletzt aufgenommene.
+- **Vorher/Nachher:** Ansicht wählen (nur Ansichten mit mindestens zwei Terminen), zwei Termine (Startwert ältester und neuester), Nebeneinander oder Überblenden mit Schieberegler. Unter jedem Foto Gewicht des Tages und Bauchumfang (`messwerteAm()`).
+- **Alle Termine:** neuester zuerst, je Termin drei Plätze; Tippen öffnet das Vollbild mit „Foto löschen“.
+- **Speicher:** eigener Eintrag in IndexedDB (siehe Datenmodell), getrennt nach echten Daten und Testdaten. „Alle Daten löschen“ löscht auch die Fotos.
+- **Dropbox (Wunsch des Nutzers):** `fotosAbgleichen()` läuft im Abgleich nach der Sicherung: lädt fehlende Fotos nach `fotos/JJJJ-MM-TT_ansicht_id.jpg` hoch, löscht dort lokal gelöschte, holt Fotos, die nur in der Dropbox liegen (Gerätewechsel), höchstens 20 je Abgleich. Plan: `fotoAbgleichPlan()` (getestet). Änderungen an der Fotoliste lesen immer den aktuellen Stand, damit während des Abgleichs aufgenommene Fotos nicht verloren gehen.
+- Erreichbar über Fortschritt (Karte „Fortschrittsfotos“), Mehr und den Sonntags-Hinweis (Knöpfe „Bauchumfang“ und „Fotos“).
+
 ## Abend-Vorschläge „Für heute noch“ (seit 1.8)
 
 - Ab `einstellungen.vorschlagAbStunde` (Startwert 20 Uhr, Berliner Zeit) zeigt „Heute“ die Karte. Umsetzung: `abendVorschlag()` in `js/core/vorschlag.js`, ohne KI.
@@ -188,7 +201,7 @@ Vollständige Beschreibung: **IMPORT-FORMAT.md**. Kurzfassung:
 
 - **Einrichtung durch den Nutzer:** eigene Dropbox-App (Scoped access, „App folder“, Rechte `files.metadata.read`, `files.content.read`, `files.content.write`), App key in der App eintragen, bei Dropbox anmelden, angezeigten Code einfügen. Kein Redirect, kein Client-Secret.
 - **Gespeichert** wird die Verbindung unter dem Schlüssel `cloud` in der Datenbank `fitness-app` (`appKey, refreshToken, accessToken, ablauf, konto, letzterAbgleich, liesmichVersion, fehler, protokoll`). Sie ist nicht Teil von Sicherung und Export. Im Testdaten-Modus ist der Abgleich aus.
-- **Ordner** (relativ zum App-Ordner `Apps/<Name>/`): `stand.md`, `rezepte.md`, `LIESMICH-fuer-Claude.md`, `sicherung/fitness-sicherung.json` (App schreibt), `eingang/` (Claude legt Import-Dateien ab), `erledigt/` (App verschiebt Verarbeitetes).
+- **Ordner** (relativ zum App-Ordner `Apps/<Name>/`): `stand.md`, `rezepte.md`, `LIESMICH-fuer-Claude.md`, `sicherung/fitness-sicherung.json` (App schreibt), `eingang/` (Claude legt Import-Dateien ab), `erledigt/` (App verschiebt Verarbeitetes), `fotos/` (Fortschrittsfotos, seit 1.18; laut LIESMICH öffnet Claude sie nur auf ausdrücklichen Wunsch).
 - **Abgleich** (`abgleichen()`): lädt die vier Dateien hoch, listet `eingang/`, lädt neue Dateien und prüft sie mit `leseImport`. Automatisch 1,5 s nach dem Start, beim Zurückkehren in die App (wenn älter als 2 Min.) und 15 s nach einer Änderung.
 - **Jede Datei erscheint mit Vorschau** unter „Claude-Verbindung“ (Hinweis auf „Heute“); „Übernehmen“ oder „Verwerfen“ verschiebt sie nach `erledigt/`. Einzige Ausnahme: Auto-Importe mit eingeschalteter Einstellung (nächster Punkt).
 - **Auto-Import aus dem Kurzbefehl (seit 1.6):** Ein iOS-Kurzbefehl legt bei jedem Schließen von Yazio `eingang/import-auto-JJJJ-MM-TT.txt` mit genau einem `tag`-Eintrag ab; durch die Dropbox entstehen Varianten (`-2`, „conflicted copy“, `(1)`). `verarbeiteEingang()` in `js/core/eingang.js` gruppiert alle `import-auto-`-Dateien nach dem **Datum im Inhalt**, behält je Datum die neueste (`server_modified`) und verschiebt ältere ohne Rückfrage nach `erledigt/`. Ungültige Auto-Dateien zählen nicht als neueste. Andere Dateien bleiben unberührt.

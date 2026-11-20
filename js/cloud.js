@@ -10,6 +10,7 @@ import { verarbeiteEingang, verschiebeNachErledigt, erledigtNamen } from './core
 import { verarbeite } from './core/import.js';
 import { deKurz } from './core/datum.js';
 import { VERSION } from './version.js';
+import { fotosAbgleichen } from './fotos.js';
 
 const f = (...a) => fetch(...a);
 
@@ -107,6 +108,9 @@ export function abgleichen({ stumm = true } = {}) {
         c.liesmichVersion = `${VERSION}/${LIESMICH_VERSION}`;
       }
 
+      // Fortschrittsfotos (eigener Ordner fotos/, nicht Teil der Sicherungsdatei)
+      const fo = await fotosAbgleichen(d);
+
       c.letzterAbgleich = jetzt.toISOString();
       c.fehler = null;
       await speichereCloud();
@@ -116,7 +120,7 @@ export function abgleichen({ stumm = true } = {}) {
       const auto = uebernommen.length ? `Auto-Import übernommen (${uebernommen.map((p) => deKurz(p.datum)).join(', ')})` : '';
       if (!stumm) meldung([neue ? `${neue} neue ${neue === 1 ? 'Datei' : 'Dateien'} im Eingang` : '', auto].filter(Boolean).join(' · ') || 'Abgeglichen');
       else if (neue || auto) meldung([neue ? `${neue} neue ${neue === 1 ? 'Datei' : 'Dateien'} im Eingang` : '', auto].filter(Boolean).join(' · '));
-      return { ok: true, neu: neue, geaendert: e.geaendert, fehler: null };
+      return { ok: true, neu: neue, geaendert: e.geaendert || fo.runter > 0, fehler: null };
     } catch (e) {
       const text = e instanceof DropboxFehler ? e.message : `Abgleich fehlgeschlagen: ${e && e.message ? e.message : e}`;
       if (!(e instanceof DropboxFehler && e.offline)) { c.fehler = text; await speichereCloud(); }
