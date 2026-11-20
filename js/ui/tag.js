@@ -60,7 +60,7 @@ export function tagFormular(datum, { voll = false, onChange = () => {} } = {}) {
   }
   teile.push(karte(voll ? 'Tageswerte' : 'Schnelleingabe',
     h('div', { class: 'raster2' },
-      z('Gewicht', 'gewicht_kg', 'kg', { min: 20, max: 400 }),
+      z('Gewicht', 'gewicht_kg', 'kg', { min: 20, max: 400, stellen: 1 }),
       z('Schritte', 'schritte', null, { ganz: true, min: 0, max: 200000 }),
       z('Schlaf', 'schlaf_h', 'Std.', { min: 0, max: 24 }),
       voll ? zahlFeld({ label: 'Bauchumfang', wert: bauchAm(datum) ? bauchAm(datum).bauch_cm : null, einheit: 'cm', min: 30, max: 250, onChange: (w) => { setzeBauch(datum, w); onChange(); } }) : null,

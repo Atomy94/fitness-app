@@ -118,7 +118,7 @@ Status: `gruen` geschafft · `gelb` knapp · `rot` verfehlt · `grau` trifft nic
 - **Wochenwertung:** Ernährung x/7, Training x/y Plantage (y = Tage mit Wertung), Schritte x/7, dazu Schritte-Schnitt und Kalorien-Wochenschnitt mit eigener Bewertung (zwischen „grün bis“ und „gelb bis“ ist gelb).
 - **Minimalversion** (Zeiträume in den Einstellungen): Schritte 6.000, Kalorien 2.100–2.500 grün, Kraft an Pflichttagen 20 Min./erste 3 Übungen, Laufband ohne Wertung. „Gewicht und Bauchumfang halten“ gilt als Erfolg und wird so angezeigt.
 - **Regel 15 Uhr:** ab 15:00 und Schritte unter `schritte_pflicht_grenze` → „Laufband heute Abend: Pflicht“.
-- **Gewicht:** Hauptlinie ist der 7-Tage-Schnitt (`gleitSchnitt`). **Bauchumfang** ist die Hauptkennzahl, mit linearem Zielpfad.
+- **Gewicht** wird immer mit höchstens einer Nachkommastelle gespeichert (seit 1.16.1: Import, Eingabefeld und beim Laden vorhandener Daten gerundet). Hauptlinie ist der 7-Tage-Schnitt (`gleitSchnitt`). **Bauchumfang** ist die Hauptkennzahl, mit linearem Zielpfad.
 - Schlaf und Stress werden erfasst und angezeigt, nicht bewertet.
 - **Sonntags-Hinweis (seit 1.15):** Sonntags zeigt „Heute“ „Bauchumfang messen und Fotos machen“ (Link zur Tagesansicht mit dem Feld Bauchumfang), bis für diesen Sonntag ein gültiger Bauchumfang eingetragen ist (`sonntagsMessungOffen()` in `js/core/bewertung.js`, Messung mit beliebiger Quelle).
 

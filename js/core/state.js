@@ -86,6 +86,10 @@ export function ergaenze(state, heuteIso) {
   if (!e.plan.wochenplan) e.plan.wochenplan = standardWochenplan();
   if (!e.plan.einheiten) e.plan.einheiten = standardEinheiten();
   if (!e.minimal.zeitraeume) e.minimal.zeitraeume = [];
+  // Körpergewicht immer mit höchstens einer Nachkommastelle (ältere Stände hatten teils mehr)
+  const eineStelle = (o) => { if (o && typeof o.gewicht_kg === 'number') o.gewicht_kg = Math.round(o.gewicht_kg * 10) / 10; };
+  Object.values(state.tage).forEach(eineStelle);
+  state.messungen.forEach(eineStelle);
   return state;
 }
 

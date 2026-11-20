@@ -3,7 +3,7 @@
 // Gespeichert wird erst, wenn die App den neuen Stand nach "Übernehmen" übernimmt.
 
 import { istDatum, de, plusTage, WT_KURZ, WT_LANG } from './datum.js';
-import { parseZahl, fmt } from './zahl.js';
+import { parseZahl, fmt, runde } from './zahl.js';
 import { ZIEL_INFO, setzeZiel } from './ziele.js';
 import { neueId } from './state.js';
 import { KATEGORIEN, neuesRezept } from './rezepte.js';
@@ -249,7 +249,8 @@ export function leseImport(text) {
       if (!spec) { unbekannt.push(feld); continue; }
       if (wert === null) continue; // null = nicht ändern
       const v = pruefeWert(spec, wert, `${wo}, Feld "${feld}"`, fehler);
-      if (v !== undefined) e[feld] = v;
+      // Körpergewicht wird auf eine Nachkommastelle gerundet (Health liefert oft viele Stellen).
+      if (v !== undefined) e[feld] = feld === 'gewicht_kg' ? runde(v, 1) : v;
     }
     for (const [feld, spec] of Object.entries(felder)) {
       if (spec[0].endsWith('*') && (e[feld] === undefined || e[feld] === '')) fehler.push(`${wo}: Pflichtfeld "${feld}" fehlt.`);

@@ -27,6 +27,8 @@ Der Block darf in Code-Zäunen (```) stehen und Leerzeilen davor haben.
 
 ## Allgemeine Regeln
 
+- `gewicht_kg` (bei `tag` und `messung`) wird beim Import auf eine Nachkommastelle gerundet (ab 1.16.1).
+
 1. **Pflicht sind nur `typ` und `datum`** (bei `ziel`: `gueltig_ab`, `schluessel`, `wert`; bei `training`: `einheit`; bei `cardio`: `art`; bei `blutwert`: `name`; bei `rezept` und `einheit`: `name`, kein Datum; bei `plantag`: `wochentag`, kein Datum). Alles andere ist optional.
 2. **Nur vorhandene Felder werden übernommen.** Fehlende Felder lassen vorhandene Werte unverändert.
 3. **`null` bedeutet „nicht ändern“.** Ein Wert lässt sich per Import nicht löschen (das geht in der App).

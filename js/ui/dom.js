@@ -1,7 +1,7 @@
 // Bausteine für die Oberfläche: Elemente erzeugen, Eingabefelder, Statuspunkte, Diagramme.
 // Texte werden immer als Text eingefügt (nie als HTML) – Notizen können nichts kaputt machen.
 
-import { parseZahl, fmt, fmtEingabe } from '../core/zahl.js';
+import { parseZahl, fmt, fmtEingabe, runde } from '../core/zahl.js';
 import { deKurz, diffTage, plusTage } from '../core/datum.js';
 
 function setze(el, attrs) {
@@ -73,13 +73,14 @@ export function balken(wert, ziel, status) {
 /**
  * Zahlenfeld mit Komma-Eingabe. onChange(zahl | null) wird nur bei gültiger Eingabe aufgerufen.
  */
-export function zahlFeld({ label, wert, einheit, onChange, platzhalter = '', ganz = false, min = null, max = null }) {
+export function zahlFeld({ label, wert, einheit, onChange, platzhalter = '', ganz = false, min = null, max = null, stellen = null }) {
   const input = h('input', {
     type: 'text', inputmode: ganz ? 'numeric' : 'decimal', autocomplete: 'off', enterkeyhint: 'done',
     placeholder: platzhalter, value: fmtEingabe(wert),
     onchange: () => {
       const text = input.value.trim();
-      const n = text === '' ? null : parseZahl(text);
+      const roh = text === '' ? null : parseZahl(text);
+      const n = roh !== null && stellen !== null ? runde(roh, stellen) : roh;
       const ungueltig = (text !== '' && n === null) || (n !== null && ((ganz && !Number.isInteger(n)) || (min !== null && n < min) || (max !== null && n > max)));
       input.classList.toggle('falsch', ungueltig);
       if (ungueltig) return;
