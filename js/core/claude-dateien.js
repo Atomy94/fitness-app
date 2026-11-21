@@ -15,7 +15,7 @@ import { de, montag, plusTage, kw, WT_LANG } from './datum.js';
 
 export const ORDNER = { eingang: '/eingang', erledigt: '/erledigt', sicherung: '/sicherung' };
 export const DATEI = { stand: '/stand.md', rezepte: '/rezepte.md', liesmich: '/LIESMICH-fuer-Claude.md', sicherung: '/sicherung/fitness-sicherung.json' };
-export const LIESMICH_VERSION = 7;
+export const LIESMICH_VERSION = 8;
 
 const ohneId = ({ id, ...rest }) => rest;
 const nachDatum = (a, b) => (a.datum < b.datum ? -1 : a.datum > b.datum ? 1 : 0);
@@ -192,7 +192,7 @@ Der Nutzer sieht beim nächsten Öffnen der App eine Vorschau (alter Wert → ne
 ### Felder je Typ
 
 - **tag**: kcal, eiweiss_g, kh_g, fett_g, ballaststoffe_g, ges_fett_g, zucker_g, salz_g, schritte (ganze Zahl), gewicht_kg, bauch_cm, schlaf_h (Gesamtschlaf der Nacht, die am Morgen dieses Tages endet), schlaf_qualitaet (1–5, alt), stress (1–10), ab 1.17 optional: schlaf_tief_min, schlaf_rem_min, schlaf_leicht_min, schlaf_wach_min (Minuten je Schlafphase), einschlafen, aufwachen ("HH:MM"), ruhepuls (Schläge/Min.), hrv_ms, kreatin (true/false), fussball (true/false: hat am Fußballtag Fußball stattgefunden), ungenau (true/false), notiz
-- **training** (Krafteinheit): einheit (z. B. „Kraft A“, „Kraft B“, „Kraft C“), dauer_min, verkuerzt (true/false), uebungen [ { name, saetze [ { wdh, kg, sek } ], notiz } ], notiz. Optional (ab 1.16, Check vor dem Training, je 1–5, 5 = gut): check_muskelkater, check_schlaf, check_energie, check_regionen (Liste aus „Oberkörper“, „Beine“, „Rumpf“), check_vorschlag (normal, leicht, reduziert, ersatz), check_angenommen (true/false), ersetzt (true = Kraft durch Spaziergang/Laufband ersetzt, zählt wie verkürzt). Gleiches Datum und gleiche Einheit **ersetzt** die vorhandene Einheit (der Nutzer wird gefragt).
+- **training** (Krafteinheit): einheit (z. B. „Kraft A“, „Kraft B“, „Kraft C“), dauer_min, verkuerzt (true/false), uebungen [ { name, saetze [ { wdh, kg, sek } ], notiz } ], notiz. Optional (ab 1.16, Check vor dem Training, je 1–5, 5 = gut): check_muskelkater, check_schlaf, check_energie, check_regionen (Liste aus „Oberkörper“, „Beine“, „Rumpf“), check_vorschlag (normal, leicht, reduziert, ersatz), check_angenommen (true/false), ersetzt (true = Kraft durch Spaziergang/Laufband ersetzt, zählt wie verkürzt). **Zeiten (ab 1.19, nur bei live in der App aufgezeichneten Einheiten; fehlen bei alten oder nachgetragenen):** am Training start und ende (Ortszeit Berlin, "2026-11-21T17:05:12"); je Übung pause_geplant_sek (Pause laut Plan); je Satz start (Beginn), dauer_sek (Satzdauer) und pause_sek (gemessene Pause bis zum nächsten Satz, egal welcher Übung – bei Supersätzen also bis zur Partnerübung; beim allerletzten Satz null). Die App kennt nur den Haken: Satzende = ✓, Satzbeginn = Ende der Pause (Timer abgelaufen, „Pause aus“ oder Anhalten) bzw. Trainingsstart; kommt der ✓ vor Ablauf der Pause, gilt Pause 0. Angehaltene Zeit zählt nicht mit. Beispiel: { "wdh": 12, "kg": 16, "start": "2026-11-21T17:05:12", "dauer_sek": 38, "pause_sek": 72 }. Gleiches Datum und gleiche Einheit **ersetzt** die vorhandene Einheit (der Nutzer wird gefragt).
 - **cardio**: art („Laufband“, „Hallenfußball“, „Spaziergang“ werden ausgewertet), dauer_min, km, notiz
 - **messung**: bauch_cm, koerperfett_pct, gewicht_kg, muskelmasse_kg, fettmasse_kg, fettfrei_kg, viszeral, grundumsatz_kcal, liegestuetze_max, kniebeugen_max, quelle („Maßband“, „Tanita“, „Krafttest“), ungueltig, grund
 - **blutwert**: name, wert, wert_text, einheit, norm_min, norm_max

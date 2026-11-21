@@ -14,6 +14,7 @@ import { fmt } from '../core/zahl.js';
 import { uebungsVerlaeufe, vergleich, variante, zuletztSchwer, ergaenzePlanUebung, rekord, markiereRekorde } from '../core/kraft.js';
 import { pausenSignal } from '../core/signal.js';
 import { wachhalter } from '../core/wach.js';
+import { zeitBeiHaken, zeitZurueck, pauseBeginnt, pauseLaenger, pauseEndet, uebungenZumSpeichern, zeitAuswertung, berlinIso, dauerText as zeitText } from '../core/satzzeit.js';
 
 // Bildschirm bleibt an, solange ein Training läuft (wird beim Verlassen wieder freigegeben).
 const wach = wachhalter(navigator, document);
@@ -236,7 +237,7 @@ function entwurfUebung(planUebung, datum, schwer) {
 function neuerEntwurf(einheit, datum, wahl = [], saetze = [], check = null) {
   const { liste, gekuerzt, maxMin } = planListe(einheit, datum);
   const en = {
-    einheit, datum, startMs: Date.now(), pauseBis: null, pauseGemeldet: true, zeitGemeldet: false,
+    einheit, datum, startMs: Date.now(), bereitLauf: 0, pauseBis: null, pauseGemeldet: true, zeitGemeldet: false,
     maxMin, gekuerzt, verkuerzt: false, notiz: '', dauer_min: null,
     uebungen: liste.map((u, i) => {
       const e = entwurfUebung(u, datum, !!wahl[i]);
@@ -451,15 +452,12 @@ const mmss = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${M
 
 function beende(nurBestaetigte) {
   const en = S.entwurf;
-  const uebungen = en.uebungen.map((u) => {
-    const saetze = u.saetze.filter((x) => !nurBestaetigte || x.fertig).map((x) => (u.zeit ? { sek: x.sek } : { wdh: x.wdh ?? 0, kg: x.kg ?? 0 }));
-    const aus = { name: u.name, saetze };
-    if (u.notiz) aus.notiz = u.notiz;
-    return aus;
-  }).filter((u) => u.saetze.length);
   const live = en.datum === heuteIso() && en.dauer_min === null;
+  // Live-Training: je Satz Beginn, Dauer und gemessene Pause, je Übung die geplante Pause
+  const uebungen = uebungenZumSpeichern(en, nurBestaetigte, live);
   const t = {
     id: neueId(), typ: 'kraft', datum: en.datum, einheit: en.einheit,
+    ...(live ? { start: berlinIso(en.startMs), ende: berlinIso(Date.now()) } : {}),
     dauer_min: live ? Math.max(1, Math.round(laufzeit(en) / 60000)) : en.dauer_min,
     verkuerzt: !!en.verkuerzt, uebungen, notiz: en.notiz || '',
     ...(en.check || {}),
@@ -517,12 +515,13 @@ function startScreen(einheit, datumArg) {
   const pauseEl = h('span', { class: 'gross pause' }, '');
   const pauseTitel = h('div', { class: 'klein' }, 'Satzpause');
   const standardPause = () => S.state.einstellungen.pauseSek;
-  const startePause = (sek) => { en.pauseSoll = sek; en.pauseBis = Date.now() + sek * 1000; en.pauseGemeldet = false; signalPlanen(en.pauseBis); };
+  const startePause = (sek) => { pauseBeginnt(en, laufzeit(en), sek); en.pauseSoll = sek; en.pauseBis = Date.now() + sek * 1000; en.pauseGemeldet = false; signalPlanen(en.pauseBis); };
   const haltKnopf = h('button', { type: 'button', class: 'knopf schmal', onclick: () => {
     if (en.angehaltenSeit) {
       en.angehaltenMs = (en.angehaltenMs || 0) + (Date.now() - en.angehaltenSeit);
       en.angehaltenSeit = null;
     } else {
+      pauseEndet(en, laufzeit(en)); // Anhalten beendet die Satzpause
       en.angehaltenSeit = Date.now();
       en.pauseBis = null; en.pauseGemeldet = true; signalAbbrechen(); // Satzpause endet mit dem Anhalten
     }
@@ -548,8 +547,8 @@ function startScreen(einheit, datumArg) {
     ),
     h('div', { class: 'knopfreihe', style: 'margin-top:6px' },
       h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.angehaltenSeit) return; tonBereit(); startePause(en.pauseSoll || standardPause()); sichern(); tick(); } }, 'Pause neu'),
-      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.pauseBis) { tonBereit(); en.pauseBis += 15000; en.pauseGemeldet = false; signalPlanen(en.pauseBis); sichern(); tick(); } } }, '+15 s'),
-      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { en.pauseBis = null; en.pauseGemeldet = true; signalAbbrechen(); sichern(); tick(); } }, 'Pause aus'),
+      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.pauseBis) { tonBereit(); en.pauseBis += 15000; pauseLaenger(en, 15000); en.pauseGemeldet = false; signalPlanen(en.pauseBis); sichern(); tick(); } } }, '+15 s'),
+      h('button', { type: 'button', class: 'knopf schmal', onclick: () => { if (en.pauseBis) pauseEndet(en, laufzeit(en)); en.pauseBis = null; en.pauseGemeldet = true; signalAbbrechen(); sichern(); tick(); } }, 'Pause aus'),
     ),
   );
   function tick() {
@@ -608,7 +607,9 @@ function startScreen(einheit, datumArg) {
               if (feld) feld.focus();
               return;
             }
+            if (x.fertig) zeitZurueck(en, x); // ✓ zurückgenommen
             x.fertig = !x.fertig;
+            if (x.fertig && live) zeitBeiHaken(en, x, laufzeit(en), Date.now());
             zeile.classList.toggle('fertig', x.fertig);
             zeichnePips();
             // Neuer Bestwert? Verglichen wird mit allen früheren Einheiten und den schon bestätigten Sätzen von heute.
@@ -755,6 +756,22 @@ function cardioScreen(artArg, datumArg) {
 
 // ---------- Detail einer Einheit ----------
 
+/** Satz- und Pausenzeiten einer Einheit (nur wenn live aufgezeichnet). */
+function zeitKarte(t) {
+  const a = zeitAuswertung(t);
+  if (!a) return null;
+  const zeile = (name, wert, zusatz) => h('li', null, h('span', { class: 'wachs' }, name, zusatz ? h('div', { class: 'klein' }, zusatz) : null), h('span', { class: 'fett' }, wert));
+  return karte('Satz- und Pausenzeiten',
+    h('ul', { class: 'liste' },
+      zeile('Reine Satzzeit', zeitText(a.satzSek)),
+      zeile('Pausenzeit gesamt', zeitText(a.pauseSek), a.gesamtSek ? `Training insgesamt ${zeitText(a.gesamtSek)}` : null),
+      ...a.uebungen.filter((u) => u.pauseSchnitt !== null).map((u) => {
+        const diff = u.pauseGeplant !== null ? u.pauseSchnitt - u.pauseGeplant : null;
+        return zeile(u.name, `Ø ${u.pauseSchnitt} s`, u.pauseGeplant !== null ? `geplant ${u.pauseGeplant} s · ${diff === 0 ? 'genau wie geplant' : diff > 0 ? `${diff} s länger` : `${-diff} s kürzer`}` : 'Pause danach');
+      })),
+    h('p', { class: 'klein abstand' }, 'Satzbeginn = Ende der Satzpause (Timer abgelaufen oder „Pause aus“), Satzende = ✓. Bei Supersätzen zählt die Pause bis zum nächsten Satz, egal welcher Übung.'));
+}
+
 function einheitScreen(id) {
   const t = S.state.trainings.find((x) => x.id === id);
   if (!t) return { titel: 'Einheit', zurueck: 'training', knoten: h('p', { class: 'leer' }, 'Diese Einheit gibt es nicht mehr.') };
@@ -772,6 +789,7 @@ function einheitScreen(id) {
       checkZeile(t) ? h('p', { class: 'klein abstand' }, checkZeile(t)) : null,
       h('a', { class: 'knopf schmal breit abstand', href: `#tag/${t.datum}` }, 'Zum Tag'),
     ),
+    t.typ === 'kraft' ? zeitKarte(t) : null,
     t.typ === 'kraft'
       ? (t.uebungen || []).map((u) => h('section', { class: `karte ukarte k-${uebungsArt(u.name).farbe}` },
         h('a', { class: 'ukopf', style: 'color:inherit;margin-bottom:8px', href: `#training/uebung/${enc(uebungsSchluessel(u.name))}` }, kachel(u.name), h('h3', { class: 'wachs' }, u.name), h('span', { class: 'pfeil', style: 'color:var(--text2);font-size:20px' }, '›')),

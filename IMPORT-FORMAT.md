@@ -73,8 +73,9 @@ Sonderfall: Ist ein Tag als „Werte ungenau“ markiert und der Import liefert 
 | `einheit` | Text, Pflicht | z. B. „Kraft A“, „Kraft B“, „Kraft C“, „Studio Oberkörper“ |
 | `dauer_min` | Zahl | |
 | `verkuerzt` | true/false | verkürzt = Bereich Training gelb |
-| `uebungen` | Liste | je Übung: `name` (Pflicht), `saetze` (Liste), `notiz` |
-| `uebungen[].saetze[]` | Objekt | `wdh` (ganze Zahl), `kg` (Zahl, 0 = Körpergewicht), `sek` (für Halteübungen) |
+| `uebungen` | Liste | je Übung: `name` (Pflicht), `saetze` (Liste), `notiz`, `pause_geplant_sek` (ab 1.19: Pause laut Plan) |
+| `uebungen[].saetze[]` | Objekt | `wdh` (ganze Zahl), `kg` (Zahl, 0 = Körpergewicht), `sek` (für Halteübungen); ab 1.19 optional `start` (Zeitpunkt), `dauer_sek` (Satzdauer), `pause_sek` (gemessene Pause bis zum nächsten Satz; beim allerletzten Satz `null`) |
+| `start`, `ende` | Zeitpunkt `"2026-11-21T17:05:12"` | ab 1.19: Beginn und Ende der Einheit (Ortszeit Berlin) |
 | `notiz` | Text | |
 | `check_muskelkater` | ganze Zahl 1–5 | ab 1.16, Check vor dem Training: 5 = kein Muskelkater, 1 = stark |
 | `check_schlaf` | ganze Zahl 1–5 | 5 = sehr gut, 1 = sehr schlecht |
@@ -85,6 +86,8 @@ Sonderfall: Ist ein Tag als „Werte ungenau“ markiert und der Import liefert 
 | `ersetzt` | true/false | Kraft durch Spaziergang/Laufband ersetzt; zählt wie verkürzt (gelb, 50 %), auch am Bonus-Tag |
 
 Alle `check_`-Felder sind optional; ältere App-Versionen ignorieren sie.
+
+**Zeiten (ab 1.19):** Die App schreibt sie nur bei live aufgezeichneten Einheiten (siehe CLAUDE.md, „Satz- und Pausenzeiten“). Fehlen sie, bleiben die Felder weg. Ein Import darf sie mitliefern (z. B. beim Ersetzen einer Einheit), damit sie erhalten bleiben; `pause_sek: null` wird wie „fehlt“ behandelt.
 
 **Gleiches Datum und gleiche Einheit:** Die vorhandene Einheit wird **ersetzt** (nicht ergänzt). Die Vorschau fragt mit einem Haken „Vorhandene Einheit ersetzen“ nach; ohne Haken wird der Eintrag übersprungen.
 

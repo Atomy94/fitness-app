@@ -30,6 +30,7 @@ export const FELDER = {
     einheit: ['text*'], dauer_min: Z(0, 600), verkuerzt: ['bool'], uebungen: ['uebungen'], notiz: ['text'],
     check_muskelkater: G(1, 5), check_schlaf: G(1, 5), check_energie: G(1, 5), check_regionen: ['regionen'],
     check_vorschlag: ['checkstufe'], check_angenommen: ['bool'], ersetzt: ['bool'],
+    start: ['zeitpunkt'], ende: ['zeitpunkt'],
   },
   cardio: { art: ['text*'], dauer_min: Z(0, 1440), km: Z(0, 500), notiz: ['text'] },
   messung: {
@@ -60,7 +61,7 @@ export const FELD_NAMEN = {
   einschlafen: 'Eingeschlafen', aufwachen: 'Aufgewacht', ruhepuls: 'Ruhepuls', hrv_ms: 'HRV (ms)', kreatin: 'Kreatin', fussball: 'Fußball gespielt',
   ungenau: 'Werte ungenau', notiz: 'Notiz', einheit: 'Einheit', dauer_min: 'Dauer (Min.)', verkuerzt: 'Verkürzt',
   check_muskelkater: 'Check: Muskelkater', check_schlaf: 'Check: Schlaf', check_energie: 'Check: Energie', check_regionen: 'Check: Muskelkater-Regionen',
-  check_vorschlag: 'Check: Vorschlag', check_angenommen: 'Check: Vorschlag angenommen', ersetzt: 'Durch Bewegung ersetzt',
+  check_vorschlag: 'Check: Vorschlag', check_angenommen: 'Check: Vorschlag angenommen', ersetzt: 'Durch Bewegung ersetzt', start: 'Beginn', ende: 'Ende',
   uebungen: 'Übungen', art: 'Art', km: 'Strecke (km)', koerperfett_pct: 'Körperfett (%)',
   muskelmasse_kg: 'Muskelmasse (kg)', fettmasse_kg: 'Fettmasse (kg)', fettfrei_kg: 'Fettfreie Masse (kg)',
   viszeral: 'Viszeralfett', grundumsatz_kcal: 'Grundumsatz (kcal)', liegestuetze_max: 'Liegestütze am Stück',
@@ -97,6 +98,11 @@ function pruefeWert(spec, wert, wo, fehler) {
   if (typ === 'datum') {
     if (!istDatum(wert)) { fehler.push(`${wo}: ungültiges Datum ${JSON.stringify(wert)} (erwartet JJJJ-MM-TT).`); return undefined; }
     return wert;
+  }
+  if (typ === 'zeitpunkt') {
+    const m = typeof wert === 'string' ? wert.trim().match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/) : null;
+    if (!m || Number(m[2]) > 23 || Number(m[3]) > 59 || Number(m[4] || 0) > 59) { fehler.push(`${wo}: muss ein Zeitpunkt wie "2026-11-21T17:05:12" sein (ist: ${JSON.stringify(wert)}).`); return undefined; }
+    return `${m[1]}T${m[2]}:${m[3]}:${m[4] || '00'}`;
   }
   if (typ === 'uhrzeit') {
     const m = typeof wert === 'string' ? wert.trim().match(/^(\d{1,2})[:.](\d{2})$/) : null;
@@ -198,7 +204,7 @@ function pruefeUebungen(wert, wo, fehler) {
         const ws = `${w}.saetze[${j + 1}]`;
         if (!s || typeof s !== 'object') { fehler.push(`${ws}: ungültiger Satz.`); return; }
         const satz = {};
-        for (const [feld, spec] of [['wdh', G(0, 10000)], ['kg', Z(0, 1000)], ['sek', Z(0, 36000)]]) {
+        for (const [feld, spec] of [['wdh', G(0, 10000)], ['kg', Z(0, 1000)], ['sek', Z(0, 36000)], ['start', ['zeitpunkt']], ['dauer_sek', G(0, 36000)], ['pause_sek', G(0, 36000)]]) {
           if (s[feld] === undefined || s[feld] === null) continue;
           const v = pruefeWert(spec, s[feld], `${ws}.${feld}`, fehler);
           if (v !== undefined) satz[feld] = v;
@@ -208,6 +214,7 @@ function pruefeUebungen(wert, wo, fehler) {
     }
     const uebung = { name: u.name.trim(), saetze };
     if (typeof u.notiz === 'string' && u.notiz.trim()) uebung.notiz = u.notiz.trim();
+    if (u.pause_geplant_sek !== undefined && u.pause_geplant_sek !== null) { const v = pruefeWert(G(0, 3600), u.pause_geplant_sek, `${w}.pause_geplant_sek`, fehler); if (v !== undefined) uebung.pause_geplant_sek = v; }
     aus.push(uebung);
   });
   return aus;
