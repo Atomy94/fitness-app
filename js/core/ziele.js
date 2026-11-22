@@ -37,6 +37,7 @@ const LISTE = {
   schritte_minimal: ['Schritte', 'Tagesziel in der Minimalversion', 'Schritte', 6000],
   schritte_gelb_pct: ['Schritte', 'Gelb ab … % des Ziels', '%', 90],
   schritte_pflicht_grenze: ['Schritte', 'Laufband-Pflicht, wenn um 15 Uhr unter', 'Schritte', 2000],
+  fussball_ersetzt_schritte_min: ['Schritte', 'Fußball ersetzt das Schrittziel ab', 'Min.', 45],
 
   laufband_min: ['Training', 'Laufband grün ab', 'Min.', 25],
   laufband_gelb_min: ['Training', 'Laufband gelb ab', 'Min.', 15],

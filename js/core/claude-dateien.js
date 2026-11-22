@@ -15,7 +15,7 @@ import { de, montag, plusTage, kw, WT_LANG } from './datum.js';
 
 export const ORDNER = { eingang: '/eingang', erledigt: '/erledigt', sicherung: '/sicherung' };
 export const DATEI = { stand: '/stand.md', rezepte: '/rezepte.md', liesmich: '/LIESMICH-fuer-Claude.md', sicherung: '/sicherung/fitness-sicherung.json' };
-export const LIESMICH_VERSION = 8;
+export const LIESMICH_VERSION = 9;
 
 const ohneId = ({ id, ...rest }) => rest;
 const nachDatum = (a, b) => (a.datum < b.datum ? -1 : a.datum > b.datum ? 1 : 0);
@@ -54,7 +54,7 @@ export function exportDaten(state, heuteIso, tageZahl) {
     tage: Object.values(state.tage).filter((t) => t.datum >= ab).sort(nachDatum).map((t) => {
       const b = tagBewertung(state, t.datum, heuteIso);
       const w = tagWertung(state, t.datum, heuteIso);
-      return { ...t, status: { ernaehrung: b.ernaehrung, training: b.training, schritte: b.schritte }, wertung_pct: w.prozent === null ? null : Math.round(w.prozent) };
+      return { ...t, ...(b.schritteErsetzt ? { schritte_ersetzt_durch_fussball: true } : {}), status: { ernaehrung: b.ernaehrung, training: b.training, schritte: b.schritte }, wertung_pct: w.prozent === null ? null : Math.round(w.prozent) };
     }),
     trainings: state.trainings.filter((t) => t.datum >= ab).sort(nachDatum).map(ohneId),
     messungen: [...state.messungen].sort(nachDatum).map(ohneId),
@@ -86,7 +86,7 @@ export function standDatei(state, heuteIso, zeitText, version) {
     '',
     `- Kalorien: ${z(t.kcal, ' kcal')} (Ziel ${fmt(b.ziele.kcal.ziel)}, grün ${fmt(b.ziele.kcal.min)}–${fmt(b.ziele.kcal.max)}) → ${b.kcal}`,
     `- Eiweiß: ${z(t.eiweiss_g, ' g')} (grün ab ${fmt(b.ziele.eiweiss.min)}) → ${b.eiweiss}`,
-    `- Schritte: ${z(t.schritte)} (Ziel ${fmt(b.ziele.schritte.ziel)}) → ${b.schritte}`,
+    `- Schritte: ${z(t.schritte)} (Ziel ${fmt(b.ziele.schritte.ziel)}) → ${b.schritte}${b.schritteErsetzt ? ' (Fußball ersetzt Schritte)' : ''}`,
     `- Training: ${b.plan ? b.plan.text || b.plan.typ : 'kein Trainingsziel'} → ${b.training}${b.einheiten.length ? ` (${b.einheiten.map((e) => (e.typ === 'kraft' ? e.einheit : `${e.art} ${e.dauer_min || ''} Min.`)).join(', ')})` : ''}`,
     `- Gewicht: ${z(t.gewicht_kg, ' kg')} · Minimalversion: ${b.minimal ? 'aktiv' : 'nicht aktiv'}`,
     `- Schlaf letzte Nacht: ${z(t.schlaf_h, ' Std.')}${t.ruhepuls ? ` · Ruhepuls ${t.ruhepuls}` : ''}${t.hrv_ms ? ` · HRV ${fmt(t.hrv_ms)} ms` : ''} · Stress: ${t.stress ? `${t.stress}/10` : '–'}`,
@@ -206,5 +206,7 @@ ${ziele}
 ## Bewertung in der App (zum Verständnis)
 
 Drei Bereiche werden getrennt bewertet: Ernährung (Kalorien-Korridor und Eiweiß), Training (nur an Plantagen), Schritte. Es gibt bewusst keinen Gesamtwert. Hauptkennzahl ist der Bauchumfang, beim Gewicht zählt der 7-Tage-Schnitt. Essen wird nicht in der App geloggt, die Tageswerte stammen aus Yazio.
+
+**Fußball ersetzt Schritte (ab 1.20):** Beim Fußball ist kein Handy dabei. Gibt es an einem Tag Cardio-Einträge mit Fußball in der Art (z. B. art "Hallenfußball") mit zusammen mindestens fussball_ersetzt_schritte_min Minuten (Zielschlüssel, Startwert 45, per typ "ziel" änderbar), gilt der Bereich Schritte an diesem Tag als grün (Tageswertung Schritte 100 %), egal wie viele Schritte gemessen wurden. Der Tag zählt bei „Schritte x von 7 Tagen“ als erfüllt; der Schrittdurchschnitt rechnet weiter nur mit echten Schritten. In stand.md trägt so ein Tag zusätzlich "schritte_ersetzt_durch_fussball": true. Gilt rückwirkend für alle Tage.
 `;
 }

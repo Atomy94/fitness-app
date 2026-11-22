@@ -128,6 +128,7 @@ export function bereicheDetail(datum) {
   const sz = b.ziele.schritte;
   const schritte = h('section', { class: 'karte' }, kopf('S', 'Schritte', b.schritte),
     h('ul', { class: 'liste' }, wertZeile('Schritte', fmt(t.schritte), b.schritte, `Ziel ${fmt(sz.ziel)}${b.minimal ? ' (Minimalversion)' : ''} · gelb ab ${fmt((sz.ziel * sz.gelbPct) / 100)}`)),
+    b.schritteErsetzt ? h('p', { class: 'klein abstand' }, 'Fußball ersetzt Schritte') : null,
   );
 
   const sonstiges = h('section', { class: 'karte' }, h('h2', null, 'Ohne Wertung'),

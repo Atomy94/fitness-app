@@ -91,6 +91,15 @@ export function fussballGespielt(state, datum, heuteIso) {
   return datum >= heuteIso;
 }
 
+/**
+ * Fußball ersetzt das Schrittziel (kein Handy beim Spielen): Fußball-Einheiten des Tages (z. B.
+ * "Hallenfußball") zusammen mindestens fussball_ersetzt_schritte_min Minuten.
+ */
+export function schritteDurchFussball(state, datum) {
+  const min = minuten(trainingsAm(state, datum).filter(istFussball));
+  return min > 0 && min >= zielWert(state.ziele, 'fussball_ersetzt_schritte_min', datum);
+}
+
 /** Bewertung des Bereichs Training für einen Tag. */
 export function trainingStatus(state, datum, heuteIso) {
   const e = state.einstellungen;
@@ -149,6 +158,7 @@ export function tagBewertung(state, datum, heuteIso) {
   const kcal = kcalStatus(tag.kcal, ziele.kcal);
   const eiweiss = eiweissStatus(tag.eiweiss_g, ziele.eiweiss);
   const tr = trainingStatus(state, datum, heuteIso);
+  const schritteErsetzt = schritteDurchFussball(state, datum);
   return {
     datum,
     tag,
@@ -162,7 +172,8 @@ export function tagBewertung(state, datum, heuteIso) {
     zusatz: tr.zusatz,
     plan: tr.plan,
     einheiten: tr.einheiten,
-    schritte: schritteStatus(tag.schritte, ziele.schritte),
+    schritte: schritteErsetzt ? GRUEN : schritteStatus(tag.schritte, ziele.schritte),
+    schritteErsetzt, // Schrittdurchschnitt rechnet weiter nur mit echten Schritten
     ballaststoffe: ballaststoffStatus(tag.ballaststoffe_g, ziele.ballaststoffe),
     gesFett: gesFettStatus(tag.ges_fett_g, ziele.gesFett),
     kreatin: kreatinStatus(tag.kreatin),

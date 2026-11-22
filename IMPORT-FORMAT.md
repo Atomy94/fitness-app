@@ -131,6 +131,7 @@ Tage **vor** `gueltig_ab` werden weiter mit dem alten Wert bewertet.
 | `schritte_minimal` | Schritte in der Minimalversion | 6000 |
 | `schritte_gelb_pct` | gelb ab … % des Ziels | 90 |
 | `schritte_pflicht_grenze` | Laufband-Pflicht, wenn um 15 Uhr darunter | 2000 |
+| `fussball_ersetzt_schritte_min` | ab 1.20: Fußball (Cardio, z. B. „Hallenfußball“) ab so vielen Minuten ersetzt das Schrittziel des Tages (Schritte grün) | 45 |
 | `laufband_min` / `laufband_gelb_min` | Laufband: grün ab / gelb ab (Min.) | 25 / 15 |
 | `spaziergang_min` | Spaziergang als Fußball-Ersatz ab (Min.) | 45 |
 | `ballaststoffe_min` / `ballaststoffe_gelb_min` | grün ab / gelb ab | 30 / 25 |

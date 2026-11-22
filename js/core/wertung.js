@@ -51,7 +51,7 @@ export function tagWertung(state, datum, heuteIso) {
   const eiweiss = istZahl(b.tag.eiweiss_g) && b.ziele.eiweiss.min > 0 ? begrenze(b.tag.eiweiss_g / b.ziele.eiweiss.min) : null;
   const ernaehrung = gewichtet([{ anteil: kcal, gewicht: gewicht.kcal }, { anteil: eiweiss, gewicht: gewicht.eiweiss }]);
   const training = trainingAnteil(b.training);
-  const schritte = istZahl(b.tag.schritte) && b.ziele.schritte.ziel > 0 ? begrenze(b.tag.schritte / b.ziele.schritte.ziel) : null;
+  const schritte = b.schritteErsetzt ? 1 : istZahl(b.tag.schritte) && b.ziele.schritte.ziel > 0 ? begrenze(b.tag.schritte / b.ziele.schritte.ziel) : null;
 
   const pct = (a) => (a === null ? null : a * 100);
   const bereiche = {
