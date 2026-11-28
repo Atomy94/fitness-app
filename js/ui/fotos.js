@@ -6,7 +6,7 @@ import { h, karte, datumFeld, toast } from './dom.js';
 import { fmt } from '../core/zahl.js';
 import { de, deMitTag } from '../core/datum.js';
 import { ANSICHTEN, ansichtName, fotoTermine, termineMitAnsicht, vergleichStart, fotoAm, messwerteAm } from '../core/fotos.js';
-import { fotos, fotoHinzufuegen, fotoLoeschen, fotoUrl, urlsFreigeben } from '../fotos.js';
+import { fotos, fotoHinzufuegen, fotoLoeschen, fotoDatumAendern, fotoUrl, urlsFreigeben } from '../fotos.js';
 import { istVerbunden } from '../cloud.js';
 
 // Auswahl bleibt beim Neuzeichnen erhalten
@@ -29,6 +29,33 @@ function segment(werte, aktuell, onWahl) {
     werte.map(([wert, text]) => h('button', { type: 'button', class: wert === aktuell ? 'an' : '', onclick: () => onWahl(wert) }, text)));
 }
 
+/**
+ * Knopf „Datum ändern“: klappt ein Datumsfeld auf und verschiebt die Fotos (ids) auf das gewählte Datum.
+ * nachher() läuft nach dem Speichern (z. B. Vollbild schließen).
+ */
+function datumAendern(ids, altDatum, text, nachher = () => {}) {
+  const box = h('div', { class: 'abstand' });
+  const zu = () => box.replaceChildren(h('button', { type: 'button', class: 'knopf schmal', onclick: auf }, text));
+  function auf() {
+    let gewaehlt = altDatum;
+    const feld = datumFeld({ label: 'Richtiges Datum', wert: altDatum, onChange: (d) => { gewaehlt = d; } });
+    feld.querySelector('input').max = heuteIso();
+    box.replaceChildren(feld, h('div', { class: 'raster2 abstand' },
+      h('button', { type: 'button', class: 'knopf schmal', onclick: zu }, 'Abbrechen'),
+      h('button', { type: 'button', class: 'knopf schmal haupt', onclick: async () => {
+        if (!gewaehlt || gewaehlt === altDatum) { zu(); return; }
+        if (gewaehlt > heuteIso()) { toast('Das Datum liegt in der Zukunft.'); return; }
+        const n = await fotoDatumAendern(ids, gewaehlt);
+        nachher();
+        toast(`${n === 1 ? '1 Foto' : `${n} Fotos`} auf den ${de(gewaehlt)} gesetzt`);
+        wahlStand.vorher = null; wahlStand.nachher = null;
+        neu();
+      } }, 'Datum übernehmen')));
+  }
+  zu();
+  return box;
+}
+
 /** Vollbild eines Fotos mit Löschen. */
 function zeigeGross(foto) {
   const schliessen = () => ebene.remove();
@@ -37,7 +64,8 @@ function zeigeGross(foto) {
       h('span', { class: 'wachs' }, h('b', null, `${ansichtName(foto.ansicht)} · ${deMitTag(foto.datum)}`), messText(foto.datum) ? h('div', { class: 'klein' }, messText(foto.datum)) : null),
       h('button', { type: 'button', class: 'knopf schmal', onclick: schliessen }, 'Schließen')),
     bild(foto.id, { alt: `${ansichtName(foto.ansicht)} am ${de(foto.datum)}` }),
-    h('button', { type: 'button', class: 'knopf schmal gefahr', onclick: async () => {
+    datumAendern([foto.id], foto.datum, 'Datum dieses Fotos ändern', () => schliessen()),
+    h('button', { type: 'button', class: 'knopf schmal gefahr abstand', onclick: async () => {
       if (!confirm(`Foto „${ansichtName(foto.ansicht)}“ vom ${de(foto.datum)} löschen?${istVerbunden() ? ' Es wird auch aus der Dropbox entfernt.' : ''}`)) return;
       await fotoLoeschen(foto.id);
       schliessen();
@@ -126,6 +154,7 @@ function termineKarte(liste) {
     })),
     // weitere Fotos derselben Ansicht am selben Tag
     ...ANSICHTEN.flatMap((a) => t.fotos[a.key].slice(0, -1)).map((f) => h('button', { type: 'button', class: 'knopf schmal abstand', onclick: () => zeigeGross(f) }, `Weiteres Foto: ${ansichtName(f.ansicht)}`)),
+    datumAendern(ANSICHTEN.flatMap((a) => t.fotos[a.key]).map((f) => f.id), t.datum, t.anzahl === 1 ? 'Datum ändern' : `Datum ändern (alle ${t.anzahl} Fotos)`),
   )));
 }
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fotoDateiname, leseFotoName, zielMasse, fotoTermine, termineMitAnsicht, vergleichStart, fotoAm, messwerteAm, fotoAbgleichPlan, ansichtName } from '../js/core/fotos.js';
+import { fotoDateiname, leseFotoName, zielMasse, fotoTermine, termineMitAnsicht, vergleichStart, fotoAm, messwerteAm, fotoAbgleichPlan, ansichtName, fotosNeuesDatum } from '../js/core/fotos.js';
 import { stand, MO, DI, SO } from './hilfe.mjs';
 
 // Erfundene Fotos (nur Metadaten)
@@ -67,4 +67,28 @@ test('Dropbox-Abgleich: hochladen, wiederherstellen, löschen', () => {
 test('Dropbox-Abgleich ohne Fotos tut nichts', () => {
   const p = fotoAbgleichPlan([], [], []);
   assert.deepEqual([p.hoch, p.runter, p.loeschen, p.erledigtGeloescht, p.schonOben], [[], [], [], [], []]);
+});
+
+test('Datum ändern: Foto wird verschoben, in der Dropbox umbenannt (neu hochladen, alten Namen löschen)', () => {
+  // Erfundene Fotos: zwei am falschen Datum (eins schon in der Dropbox), eins an einem anderen Tag
+  const liste = [
+    { id: 'a1', datum: '2026-11-25', ansicht: 'vorne', hochgeladen: true },
+    { id: 'b2', datum: '2026-11-25', ansicht: 'seite', hochgeladen: false },
+    { id: 'c3', datum: '2026-11-15', ansicht: 'vorne', hochgeladen: true },
+  ];
+  const r = fotosNeuesDatum(liste, ['a1', 'b2'], '2026-10-04');
+  assert.equal(r.anzahl, 2);
+  assert.deepEqual(r.liste.map((f) => [f.id, f.datum, f.hochgeladen]), [['a1', '2026-10-04', false], ['b2', '2026-10-04', false], ['c3', '2026-11-15', true]]);
+  assert.deepEqual(r.alteNamen, ['2026-11-25_vorne_a1.jpg']);
+  assert.deepEqual(fotoTermine(r.liste).map((t) => t.datum), ['2026-11-15', '2026-10-04']);
+
+  // Nächster Abgleich: in der Dropbox liegen noch die alten Namen
+  const oben = ['2026-11-25_vorne_a1.jpg', '2026-11-15_vorne_c3.jpg'];
+  const p = fotoAbgleichPlan(r.liste, oben, r.alteNamen);
+  assert.deepEqual(p.hoch.map(fotoDateiname), ['2026-10-04_vorne_a1.jpg', '2026-10-04_seite_b2.jpg']);
+  assert.deepEqual(p.loeschen, ['2026-11-25_vorne_a1.jpg']);
+  assert.deepEqual(p.runter, []); // das alte Foto wird nicht doppelt zurückgeholt
+
+  // Gleiches Datum ändert nichts
+  assert.equal(fotosNeuesDatum(liste, ['c3'], '2026-11-15').anzahl, 0);
 });

@@ -6,7 +6,7 @@
 
 import * as db from './db.js';
 import { aktuelleDb, meldeAenderung } from './store.js';
-import { zielMasse, fotoDateiname, FOTO_ORDNER, MAX_SEITE, fotoAbgleichPlan } from './core/fotos.js';
+import { zielMasse, fotoDateiname, FOTO_ORDNER, MAX_SEITE, fotoAbgleichPlan, fotosNeuesDatum } from './core/fotos.js';
 
 const MINI_SEITE = 400;
 const QUALITAET = 0.82;
@@ -81,6 +81,15 @@ export async function fotoLoeschen(id) {
     'fotos-geloescht': [...geloescht, fotoDateiname(foto)],
   });
   meldeAenderung();
+}
+
+/** Setzt Fotos auf ein anderes Datum; in der Dropbox werden sie beim nächsten Abgleich umbenannt. Liefert die Anzahl. */
+export async function fotoDatumAendern(ids, datum) {
+  const r = fotosNeuesDatum(await fotos(), ids, datum);
+  if (!r.anzahl) return 0;
+  await db.schreibe(aktuelleDb(), { fotos: r.liste, 'fotos-geloescht': [...(await geloeschtListe()), ...r.alteNamen] });
+  meldeAenderung();
+  return r.anzahl;
 }
 
 // Adressen der Bilder zur Anzeige; werden beim Verlassen des Bildschirms freigegeben.

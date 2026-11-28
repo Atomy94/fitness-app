@@ -26,6 +26,24 @@ export function leseFotoName(name) {
   return { datum: m[1], ansicht: m[2].toLowerCase(), id: m[3] };
 }
 
+/**
+ * Datum von Fotos ändern (falsch eingetragenes Datum). Liefert die neue Liste und die alten Dateinamen
+ * der Fotos, die schon in der Dropbox lagen: Dort wird beim nächsten Abgleich unter dem neuen Namen
+ * hochgeladen und der alte Name gelöscht (die id bleibt, damit nichts doppelt heruntergeladen wird).
+ */
+export function fotosNeuesDatum(liste, ids, datum) {
+  const wahl = new Set(ids);
+  const alteNamen = [];
+  let anzahl = 0;
+  const neu = (liste || []).map((f) => {
+    if (!wahl.has(f.id) || f.datum === datum) return f;
+    anzahl++;
+    if (f.hochgeladen) alteNamen.push(fotoDateiname(f));
+    return { ...f, datum, hochgeladen: false };
+  });
+  return { liste: neu, alteNamen, anzahl };
+}
+
 /** Neue Bildgröße: längste Seite höchstens max, Seitenverhältnis bleibt, nie vergrößern. */
 export function zielMasse(breite, hoehe, max = MAX_SEITE) {
   const f = Math.min(1, max / Math.max(breite, hoehe));
